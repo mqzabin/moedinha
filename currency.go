@@ -235,13 +235,13 @@ func (c Currency) Sub(v Currency) Currency {
 		if c.n.greaterThan(v.n) {
 			// v - c = -(c-v)
 			return Currency{
-				n:   v.n.subtractionComplement(c.n),
+				n:   v.n.difference(c.n),
 				neg: true,
 			}
 		}
 
 		return Currency{
-			n: c.n.subtractionComplement(v.n),
+			n: c.n.difference(v.n),
 		}
 	}
 
@@ -251,12 +251,12 @@ func (c Currency) Sub(v Currency) Currency {
 	if v.n.greaterThan(c.n) {
 		// c - v = -(v - c)
 		return Currency{
-			n:   c.n.subtractionComplement(v.n),
+			n:   c.n.difference(v.n),
 			neg: true,
 		}
 	}
 
 	return Currency{
-		n: v.n.subtractionComplement(c.n),
+		n: v.n.difference(c.n),
 	}
 }

@@ -63,9 +63,8 @@ func (n nat) add(v nat) nat {
 	return nat{n1: r1, n2: r2, n3: r3}
 }
 
-// sub "n" should always lesser than "v"
-func (n nat) subtractionComplement(v nat) nat {
-
+// difference "n" should always lesser than "v"
+func (n nat) difference(v nat) nat {
 	vCompl := v.complementOf9()
 	sum := n.add(vCompl)
 
