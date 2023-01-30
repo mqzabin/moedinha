@@ -117,7 +117,7 @@ func (n nat) greaterThan(v nat) bool {
 	return false
 }
 
-func (n nat) lesserThan(v nat) bool {
+func (n nat) lessThan(v nat) bool {
 	// TODO: Simplify this to a single boolean statement.
 
 	if n.n3 < v.n3 {
