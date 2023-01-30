@@ -1,4 +1,4 @@
-module currency
+module github.com/mqzabin/moedinha
 
 go 1.19
 
