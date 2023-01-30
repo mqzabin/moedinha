@@ -128,7 +128,7 @@ func (c Currency) IsZero() bool {
 
 func (c Currency) Equal(v Currency) bool {
 	// -0 should be equal to +0.
-	if c.n.isZero() && c.n.isZero() {
+	if c.n.isZero() && v.n.isZero() {
 		return true
 	}
 
@@ -136,31 +136,40 @@ func (c Currency) Equal(v Currency) bool {
 }
 
 func (c Currency) GreaterThan(v Currency) bool {
-	if c.n.isZero() && c.n.isZero() {
+	if c.Equal(v) {
 		return false
 	}
 
-	if c.neg == v.neg {
-		return c.n.greaterThan(v.n) && !c.neg
+	// Equal signal
+	if neg := c.neg; neg == v.neg {
+		if neg {
+			return c.n.lessThan(v.n)
+		}
+
+		return c.n.greaterThan(v.n)
 	}
 
-	if !c.neg {
-		return true
+	if c.neg {
+		return false
 	}
 
-	return false
+	return true
 }
 
 func (c Currency) LessThan(v Currency) bool {
-	if c.n.isZero() && c.n.isZero() {
+	if c.Equal(v) {
 		return false
 	}
+	// Equal signal
+	if neg := c.neg; neg == v.neg {
+		if neg {
+			return c.n.greaterThan(v.n)
+		}
 
-	if c.neg == v.neg {
-		return c.n.lessThan(v.n) && !c.neg
+		return c.n.lessThan(v.n)
 	}
 
-	if !c.neg {
+	if c.neg {
 		return true
 	}
 
@@ -222,16 +231,17 @@ func (c Currency) Sub(v Currency) Currency {
 	// both negative
 	// -c - (-v) = v - c
 	if c.neg {
+		// will be negative.
 		if c.n.greaterThan(v.n) {
 			// v - c = -(c-v)
 			return Currency{
-				n:   c.n.sub(v.n),
+				n:   v.n.subtractionComplement(c.n),
 				neg: true,
 			}
 		}
 
 		return Currency{
-			n: v.n.sub(c.n),
+			n: c.n.subtractionComplement(v.n),
 		}
 	}
 
@@ -241,12 +251,12 @@ func (c Currency) Sub(v Currency) Currency {
 	if v.n.greaterThan(c.n) {
 		// c - v = -(v - c)
 		return Currency{
-			n:   v.n.sub(c.n),
+			n:   c.n.subtractionComplement(v.n),
 			neg: true,
 		}
 	}
 
 	return Currency{
-		n: c.n.sub(v.n),
+		n: v.n.subtractionComplement(c.n),
 	}
 }

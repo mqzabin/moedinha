@@ -63,13 +63,23 @@ func (n nat) add(v nat) nat {
 	return nat{n1: r1, n2: r2, n3: r3}
 }
 
-// sub n should always greater than v
-// TODO: draft
-func (n nat) sub(v nat) nat {
+// sub "n" should always lesser than "v"
+func (n nat) subtractionComplement(v nat) nat {
 
-	r3 := n.n3 - v.n3
-	r2 := n.n2 - v.n2
-	r1 := n.n1 - v.n1
+	vCompl := v.complementOf9()
+	sum := n.add(vCompl)
+
+	return nat{
+		n1: natMaxValuePerInt - sum.n1,
+		n2: natMaxValuePerInt - sum.n2,
+		n3: natMaxValuePerInt - sum.n3,
+	}
+}
+
+func (n nat) complementOf9() nat {
+	r3 := natMaxValuePerInt - n.n3
+	r2 := natMaxValuePerInt - n.n2
+	r1 := natMaxValuePerInt - n.n1
 
 	return nat{n1: r1, n2: r2, n3: r3}
 }
