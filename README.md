@@ -1,1 +1,1 @@
-# poc-decimals
+# poc-currency
