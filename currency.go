@@ -79,6 +79,9 @@ func FromDecimalString(v string) (Currency, error) {
 }
 
 func (c Currency) String() string {
+	if c.IsZero() {
+		return "0"
+	}
 
 	str := c.n.string()
 	str = fmt.Sprintf("%s.%s", str[:currMaxIntegerDigits], str[currMaxIntegerDigits:])
@@ -111,7 +114,12 @@ func (c Currency) String() string {
 		leftZerosToRemove--
 	}
 
-	return str[leftZerosToRemove : len(str)-rightZerosToRemove]
+	var signal string
+	if c.neg {
+		signal += "-"
+	}
+
+	return signal + str[leftZerosToRemove:len(str)-rightZerosToRemove]
 }
 
 func (c Currency) IsZero() bool {
@@ -143,7 +151,24 @@ func (c Currency) GreaterThan(v Currency) bool {
 	return false
 }
 
+func (c Currency) LessThan(v Currency) bool {
+	if c.n.isZero() && c.n.isZero() {
+		return false
+	}
+
+	if c.neg == v.neg {
+		return c.n.lessThan(v.n) && !c.neg
+	}
+
+	if !c.neg {
+		return true
+	}
+
+	return false
+}
+
 func (c Currency) Add(v Currency) Currency {
+	// "(+c)+(+v) = c+v" or "(-c)+(-v) = -(c+v)"
 	if c.neg == v.neg {
 		return Currency{
 			n:   c.n.add(v.n),
@@ -151,14 +176,26 @@ func (c Currency) Add(v Currency) Currency {
 		}
 	}
 
+	// For now on, signals are different.
+
+	// C is negative.
 	if c.neg {
-		return v.Sub(c)
+		// (-c)+(+v) = (+v) - (+c)
+		return v.Sub(Currency{
+			n:   c.n,
+			neg: false,
+		})
 	}
 
-	return c.Sub(v)
+	// V is negative.
+
+	// (+c)+(-v) = (+c) - (+v)
+	return c.Sub(Currency{
+		n:   v.n,
+		neg: false,
+	})
 }
 
-// TODO: Draft
 func (c Currency) Sub(v Currency) Currency {
 	if c.Equal(v) {
 		return Currency{}
