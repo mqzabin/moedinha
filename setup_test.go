@@ -55,8 +55,8 @@ func seedParser(t *testing.T, n1, n2, n3 uint64, neg bool) string {
 
 	maxValueToNotOverflowSum := uint64(natMaxValuePerInt / 10)
 
-	n1 = n1 % maxValueToNotOverflowSum
-	n2 = n2 % maxValueToNotOverflowSum
+	n1 = n1 % natMaxValuePerInt
+	n2 = n2 % natMaxValuePerInt
 	n3 = n3 % maxValueToNotOverflowSum
 
 	s := fmt.Sprintf("%018d%018d%018d", n3, n2, n1)
