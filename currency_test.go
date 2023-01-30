@@ -9,9 +9,7 @@ import (
 )
 
 func FuzzAdd(f *testing.F) {
-	fuzzyBinaryOpSeedGenerator(f)
-
-	f.Fuzz(fuzzyBinaryOpWrapper(func(t *testing.T, aStr, bStr string) {
+	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
 		t.Log(aStr, " +")
 		t.Log(bStr, " =")
 
@@ -36,13 +34,11 @@ func FuzzAdd(f *testing.F) {
 		require.Equal(t, sResult.String(), result.String())
 
 		t.Log("pass!")
-	}))
+	})
 }
 
 func FuzzSub(f *testing.F) {
-	fuzzyBinaryOpSeedGenerator(f)
-
-	f.Fuzz(fuzzyBinaryOpWrapper(func(t *testing.T, aStr, bStr string) {
+	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
 		t.Log(aStr, " -")
 		t.Log(bStr, " =")
 
@@ -66,13 +62,11 @@ func FuzzSub(f *testing.F) {
 		require.Equal(t, sResult.String(), result.String())
 
 		t.Log("pass!")
-	}))
+	})
 }
 
 func FuzzGreaterThan(f *testing.F) {
-	fuzzyBinaryOpSeedGenerator(f)
-
-	f.Fuzz(fuzzyBinaryOpWrapper(func(t *testing.T, aStr, bStr string) {
+	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
 		t.Log(aStr, " >")
 		t.Log(bStr, " =")
 
@@ -96,13 +90,11 @@ func FuzzGreaterThan(f *testing.F) {
 		require.Equal(t, sResult, result)
 
 		t.Log("pass!")
-	}))
+	})
 }
 
 func FuzzLessThan(f *testing.F) {
-	fuzzyBinaryOpSeedGenerator(f)
-
-	f.Fuzz(fuzzyBinaryOpWrapper(func(t *testing.T, aStr, bStr string) {
+	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
 		t.Log(aStr, " <")
 		t.Log(bStr, " =")
 
@@ -126,7 +118,7 @@ func FuzzLessThan(f *testing.F) {
 		require.Equal(t, sResult, result)
 
 		t.Log("pass!")
-	}))
+	})
 }
 
 func BenchmarkCurrency(b *testing.B) {

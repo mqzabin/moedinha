@@ -37,15 +37,17 @@ func fuzzyBinaryOpSeedGenerator(f *testing.F) {
 	}
 }
 
-func fuzzyBinaryOpWrapper(f func(*testing.T, string, string)) func(*testing.T, uint64, uint64, uint64, bool, uint64, uint64, uint64, bool) {
-	return func(t *testing.T, aN1, aN2, aN3 uint64, aNeg bool, bN1, bN2, bN3 uint64, bNeg bool) {
-		t.Helper()
+func fuzzyBinaryOperation(f *testing.F, fn func(*testing.T, string, string)) {
+	f.Helper()
 
+	fuzzyBinaryOpSeedGenerator(f)
+
+	f.Fuzz(func(t *testing.T, aN1, aN2, aN3 uint64, aNeg bool, bN1, bN2, bN3 uint64, bNeg bool) {
 		aStr := seedParser(t, aN1, aN2, aN3, aNeg)
 		bStr := seedParser(t, bN1, bN2, bN3, bNeg)
 
-		f(t, aStr, bStr)
-	}
+		fn(t, aStr, bStr)
+	})
 }
 
 func seedParser(t *testing.T, n1, n2, n3 uint64, neg bool) string {
