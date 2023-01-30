@@ -121,6 +121,55 @@ func FuzzLessThan(f *testing.F) {
 	})
 }
 
+func FuzzEqual(f *testing.F) {
+	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
+		t.Log(aStr, " ==")
+		t.Log(bStr, " =")
+
+		a, err := FromDecimalString(aStr)
+		require.NoError(t, err)
+
+		b, err := FromDecimalString(bStr)
+		require.NoError(t, err)
+
+		sa, err := decimal.NewFromString(aStr)
+		require.NoError(t, err)
+
+		sb, err := decimal.NewFromString(bStr)
+		require.NoError(t, err)
+
+		result := a.Equal(b)
+		t.Log("Result: ", result)
+
+		sResult := sa.Equal(sb)
+		t.Log("Result: ", sResult, " (shospring)")
+		require.Equal(t, sResult, result)
+
+		t.Log("pass!")
+	})
+}
+
+func FuzzIsZero(f *testing.F) {
+	fuzzyUnaryOperation(f, func(t *testing.T, str string) {
+		t.Log(str, " is zero?")
+
+		a, err := FromDecimalString(str)
+		require.NoError(t, err)
+
+		sa, err := decimal.NewFromString(str)
+		require.NoError(t, err)
+
+		result := a.IsZero()
+		t.Log("Result: ", result)
+
+		sResult := sa.IsZero()
+		t.Log("Result: ", sResult, " (shospring)")
+		require.Equal(t, sResult, result)
+
+		t.Log("pass!")
+	})
+}
+
 func BenchmarkCurrency(b *testing.B) {
 
 	as := strings.Repeat("7", natMaxDigitsPerInt-1)

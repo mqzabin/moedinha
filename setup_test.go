@@ -5,19 +5,33 @@ import (
 	"testing"
 )
 
-func fuzzyBinaryOpSeedGenerator(f *testing.F) {
+var fuzzSeed = [][3]uint64{
+	{123456789012345678, 901234567890123456, 789012345678901234},
+	{0, 0, 4},
+	{0, 4, 0},
+	{4, 0, 0},
+	{0, 0, 123456789012345678},
+	{0, 123456789012345678, 0},
+	{123456789012345678, 0, 0},
+	{0, 0, 0},
+}
+
+func fuzzyUnaryOperationSeedGenerator(f *testing.F) {
 	f.Helper()
 
-	fuzzSeed := [][3]uint64{
-		{123456789012345678, 901234567890123456, 789012345678901234},
-		{0, 0, 4},
-		{0, 4, 0},
-		{4, 0, 0},
-		{0, 0, 123456789012345678},
-		{0, 123456789012345678, 0},
-		{123456789012345678, 0, 0},
-		{0, 0, 0},
+	for a := 0; a < 2; a++ {
+		aNeg := a == 0
+		for i := 0; i < len(fuzzSeed); i++ {
+			f.Add(
+				fuzzSeed[i][0], fuzzSeed[i][1], fuzzSeed[i][2],
+				aNeg,
+			)
+		}
 	}
+}
+
+func fuzzyBinaryOperationSeedGenerator(f *testing.F) {
+	f.Helper()
 
 	for a := 0; a < 2; a++ {
 		aNeg := a == 0
@@ -37,10 +51,22 @@ func fuzzyBinaryOpSeedGenerator(f *testing.F) {
 	}
 }
 
+func fuzzyUnaryOperation(f *testing.F, fn func(*testing.T, string)) {
+	f.Helper()
+
+	fuzzyUnaryOperationSeedGenerator(f)
+
+	f.Fuzz(func(t *testing.T, n1, n2, n3 uint64, neg bool) {
+		str := seedParser(t, n1, n2, n3, neg)
+
+		fn(t, str)
+	})
+}
+
 func fuzzyBinaryOperation(f *testing.F, fn func(*testing.T, string, string)) {
 	f.Helper()
 
-	fuzzyBinaryOpSeedGenerator(f)
+	fuzzyBinaryOperationSeedGenerator(f)
 
 	f.Fuzz(func(t *testing.T, aN1, aN2, aN3 uint64, aNeg bool, bN1, bN2, bN3 uint64, bNeg bool) {
 		aStr := seedParser(t, aN1, aN2, aN3, aNeg)
