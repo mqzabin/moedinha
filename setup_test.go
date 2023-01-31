@@ -3,6 +3,8 @@ package moedinha
 import (
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 var fuzzSeed = [][3]uint64{
@@ -72,7 +74,14 @@ func fuzzyBinaryOperation(f *testing.F, fn func(*testing.T, string, string)) {
 		aStr := seedParser(t, aN1, aN2, aN3, aNeg)
 		bStr := seedParser(t, bN1, bN2, bN3, bNeg)
 
-		fn(t, aStr, bStr)
+		a, err := FromDecimalString(aStr)
+		require.NoError(t, err)
+
+		b, err := FromDecimalString(bStr)
+		require.NoError(t, err)
+
+		fn(t, a.String(), b.String())
+		//fn(t, aStr, bStr)
 	})
 }
 
@@ -86,7 +95,7 @@ func seedParser(t *testing.T, n1, n2, n3 uint64, neg bool) string {
 	n3 = n3 % maxValueToNotOverflowSum
 
 	s := fmt.Sprintf("%018d%018d%018d", n3, n2, n1)
-	s = s[:currMaxIntegerDigits] + string(currDecimalPointerSymbol) + s[currMaxIntegerDigits:]
+	s = s[:currencyMaxIntegerDigits] + string(currencyDecimalSeparatorSymbol) + s[currencyMaxIntegerDigits:]
 	if neg {
 		s = "-" + s
 	}

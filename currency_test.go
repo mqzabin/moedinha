@@ -1,7 +1,6 @@
 package moedinha
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -170,52 +169,123 @@ func FuzzIsZero(f *testing.F) {
 	})
 }
 
-func BenchmarkCurrency(b *testing.B) {
-
-	as := strings.Repeat("7", natMaxDigitsPerInt-1)
-	as += strings.Repeat("9", natMaxDigitsPerInt)
-	as += strings.Repeat("9", natMaxDigitsPerInt-2)
-	as += "80"
-	as = as[:len(as)-currDecimalDigits] + "." + as[len(as)-currDecimalDigits:]
-
-	bs := strings.Repeat("0", natMaxDigitsPerInt*natNumberOfInts-2)
-	bs += "20"
-	bs = bs[:len(bs)-currDecimalDigits] + "." + bs[len(bs)-currDecimalDigits:]
-
-	x, err := FromDecimalString(as)
-	require.NoError(b, err)
-
-	y, err := FromDecimalString(bs)
-	require.NoError(b, err)
-
-	b.Log(x.String())
-	b.Log(y.String())
-	b.Log(x.Add(y).String())
+func BenchmarkNewFromString(b *testing.B) {
+	aStr := "8901234567890124190123456789012345612345678.9012345678"
 
 	var (
 		mCurrency Currency
 		sCurrency decimal.Decimal
 	)
 
-	b.Run("Add - PoC", func(b *testing.B) {
+	b.Run("moedinha", func(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
-			x, _ := FromDecimalString(as)
+			x, _ := FromDecimalString(aStr)
 
-			y, _ := FromDecimalString(bs)
+			mCurrency = x
+		}
+	})
 
+	b.Run("shopspring", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			x, _ := decimal.NewFromString(aStr)
+
+			sCurrency = x
+		}
+	})
+
+	b.Log(mCurrency.String())
+	b.Log(sCurrency.String())
+}
+
+func BenchmarkString(b *testing.B) {
+	aStr := "8901234567890124190123456789012345612345678.9012345678"
+
+	var (
+		mCurrency string
+		sCurrency string
+	)
+
+	b.Run("moedinha", func(b *testing.B) {
+		x, _ := FromDecimalString(aStr)
+
+		for i := 0; i < b.N; i++ {
+			mCurrency = x.String()
+		}
+	})
+
+	b.Run("shopspring", func(b *testing.B) {
+		x, _ := decimal.NewFromString(aStr)
+
+		for i := 0; i < b.N; i++ {
+
+			sCurrency = x.String()
+		}
+	})
+
+	b.Log(mCurrency)
+	b.Log(sCurrency)
+}
+
+func BenchmarkAdd(b *testing.B) {
+	aStr := "8901234567890124190123456789012345612345678.9012345678"
+	bStr := "2345678901234567500000000000000000000000000"
+
+	var (
+		mCurrency Currency
+		sCurrency decimal.Decimal
+	)
+
+	b.Run("moedinha", func(b *testing.B) {
+		x, _ := FromDecimalString(aStr)
+
+		y, _ := FromDecimalString(bStr)
+
+		for i := 0; i < b.N; i++ {
 			mCurrency = x.Add(y)
 		}
 	})
 
-	b.Run("Add - shopspring", func(b *testing.B) {
+	b.Run("shopspring", func(b *testing.B) {
+		x, _ := decimal.NewFromString(aStr)
+
+		y, _ := decimal.NewFromString(bStr)
 
 		for i := 0; i < b.N; i++ {
-			x, _ := decimal.NewFromString(as)
-
-			y, _ := decimal.NewFromString(bs)
-
 			sCurrency = x.Add(y)
+		}
+	})
+
+	b.Log(mCurrency.String())
+	b.Log(sCurrency.String())
+}
+
+func BenchmarkSub(b *testing.B) {
+	aStr := "8901234567890124190123456789012345612345678.9012345678"
+	bStr := "2345678901234567500000000000000000000000000"
+
+	var (
+		mCurrency Currency
+		sCurrency decimal.Decimal
+	)
+
+	b.Run("moedinha", func(b *testing.B) {
+		x, _ := FromDecimalString(aStr)
+
+		y, _ := FromDecimalString(bStr)
+
+		for i := 0; i < b.N; i++ {
+			mCurrency = x.Sub(y)
+		}
+	})
+
+	b.Run("shopspring", func(b *testing.B) {
+		x, _ := decimal.NewFromString(aStr)
+
+		y, _ := decimal.NewFromString(bStr)
+
+		for i := 0; i < b.N; i++ {
+			sCurrency = x.Sub(y)
 		}
 	})
 
