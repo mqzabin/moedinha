@@ -12,10 +12,10 @@ func FuzzAdd(f *testing.F) {
 		t.Log(aStr, " +")
 		t.Log(bStr, " =")
 
-		a, err := FromDecimalString(aStr)
+		a, err := NewFromString(aStr)
 		require.NoError(t, err)
 
-		b, err := FromDecimalString(bStr)
+		b, err := NewFromString(bStr)
 		require.NoError(t, err)
 
 		sa, err := decimal.NewFromString(aStr)
@@ -41,10 +41,10 @@ func FuzzSub(f *testing.F) {
 		t.Log(aStr, " -")
 		t.Log(bStr, " =")
 
-		a, err := FromDecimalString(aStr)
+		a, err := NewFromString(aStr)
 		require.NoError(t, err)
 
-		b, err := FromDecimalString(bStr)
+		b, err := NewFromString(bStr)
 		require.NoError(t, err)
 
 		sa, err := decimal.NewFromString(aStr)
@@ -69,10 +69,10 @@ func FuzzGreaterThan(f *testing.F) {
 		t.Log(aStr, " >")
 		t.Log(bStr, " =")
 
-		a, err := FromDecimalString(aStr)
+		a, err := NewFromString(aStr)
 		require.NoError(t, err)
 
-		b, err := FromDecimalString(bStr)
+		b, err := NewFromString(bStr)
 		require.NoError(t, err)
 
 		sa, err := decimal.NewFromString(aStr)
@@ -97,10 +97,10 @@ func FuzzLessThan(f *testing.F) {
 		t.Log(aStr, " <")
 		t.Log(bStr, " =")
 
-		a, err := FromDecimalString(aStr)
+		a, err := NewFromString(aStr)
 		require.NoError(t, err)
 
-		b, err := FromDecimalString(bStr)
+		b, err := NewFromString(bStr)
 		require.NoError(t, err)
 
 		sa, err := decimal.NewFromString(aStr)
@@ -125,10 +125,10 @@ func FuzzEqual(f *testing.F) {
 		t.Log(aStr, " ==")
 		t.Log(bStr, " =")
 
-		a, err := FromDecimalString(aStr)
+		a, err := NewFromString(aStr)
 		require.NoError(t, err)
 
-		b, err := FromDecimalString(bStr)
+		b, err := NewFromString(bStr)
 		require.NoError(t, err)
 
 		sa, err := decimal.NewFromString(aStr)
@@ -152,7 +152,7 @@ func FuzzIsZero(f *testing.F) {
 	fuzzyUnaryOperation(f, func(t *testing.T, str string) {
 		t.Log(str, " is zero?")
 
-		a, err := FromDecimalString(str)
+		a, err := NewFromString(str)
 		require.NoError(t, err)
 
 		sa, err := decimal.NewFromString(str)
@@ -180,7 +180,7 @@ func BenchmarkNewFromString(b *testing.B) {
 	b.Run("moedinha", func(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
-			x, _ := FromDecimalString(aStr)
+			x, _ := NewFromString(aStr)
 
 			mCurrency = x
 		}
@@ -207,7 +207,7 @@ func BenchmarkString(b *testing.B) {
 	)
 
 	b.Run("moedinha", func(b *testing.B) {
-		x, _ := FromDecimalString(aStr)
+		x, _ := NewFromString(aStr)
 
 		for i := 0; i < b.N; i++ {
 			mCurrency = x.String()
@@ -237,9 +237,9 @@ func BenchmarkAdd(b *testing.B) {
 	)
 
 	b.Run("moedinha", func(b *testing.B) {
-		x, _ := FromDecimalString(aStr)
+		x, _ := NewFromString(aStr)
 
-		y, _ := FromDecimalString(bStr)
+		y, _ := NewFromString(bStr)
 
 		for i := 0; i < b.N; i++ {
 			mCurrency = x.Add(y)
@@ -270,9 +270,9 @@ func BenchmarkSub(b *testing.B) {
 	)
 
 	b.Run("moedinha", func(b *testing.B) {
-		x, _ := FromDecimalString(aStr)
+		x, _ := NewFromString(aStr)
 
-		y, _ := FromDecimalString(bStr)
+		y, _ := NewFromString(bStr)
 
 		for i := 0; i < b.N; i++ {
 			mCurrency = x.Sub(y)

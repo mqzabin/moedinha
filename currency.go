@@ -33,7 +33,7 @@ type Currency struct {
 	neg bool
 }
 
-func FromDecimalString(str string) (Currency, error) {
+func NewFromString(str string) (Currency, error) {
 	if !currencyRegexp.MatchString(str) {
 		return Currency{}, errors.New("invalid currency format")
 	}
@@ -62,12 +62,16 @@ func FromDecimalString(str string) (Currency, error) {
 	cpRightShift := currencyDecimalDigits - decimalDigits
 	cpLeftShift := natDigits - (decimalDigits + integerDigits) - cpRightShift
 
+	// Copying the integer part.
 	copy(natStr[cpLeftShift:cpLeftShift+integerDigits], str[:integerDigits])
+	// Copying the decimal part, if any.
 	if decimalDigits > 0 {
 		copy(natStr[cpLeftShift+integerDigits:cpLeftShift+integerDigits+decimalDigits], str[integerDigits+1:])
 	}
 
+	// Adding leading zeros.
 	copy(natStr[:cpLeftShift], zeroFiller[:cpLeftShift])
+	// Adding trailing zeros.
 	copy(natStr[natDigits-cpRightShift:], zeroFiller[:cpRightShift])
 
 	n, err := newNatFromString(natStr)

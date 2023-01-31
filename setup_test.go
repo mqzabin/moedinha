@@ -74,10 +74,10 @@ func fuzzyBinaryOperation(f *testing.F, fn func(*testing.T, string, string)) {
 		aStr := seedParser(t, aN1, aN2, aN3, aNeg)
 		bStr := seedParser(t, bN1, bN2, bN3, bNeg)
 
-		a, err := FromDecimalString(aStr)
+		a, err := NewFromString(aStr)
 		require.NoError(t, err)
 
-		b, err := FromDecimalString(bStr)
+		b, err := NewFromString(bStr)
 		require.NoError(t, err)
 
 		fn(t, a.String(), b.String())
