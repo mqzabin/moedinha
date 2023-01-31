@@ -64,6 +64,34 @@ func FuzzSub(f *testing.F) {
 	})
 }
 
+func FuzzMul(f *testing.F) {
+	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
+		t.Log(aStr, " X")
+		t.Log(bStr, " =")
+
+		a, err := NewFromString(aStr)
+		require.NoError(t, err)
+
+		b, err := NewFromString(bStr)
+		require.NoError(t, err)
+
+		sa, err := decimal.NewFromString(aStr)
+		require.NoError(t, err)
+
+		sb, err := decimal.NewFromString(bStr)
+		require.NoError(t, err)
+
+		result := a.Mul(b)
+		t.Log(result.String())
+
+		sResult := sa.Mul(sb)
+		t.Log(sResult.String(), " (shopspring)")
+		require.Equal(t, sResult.String(), result.String())
+
+		t.Log("pass!")
+	})
+}
+
 func FuzzGreaterThan(f *testing.F) {
 	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
 		t.Log(aStr, " >")

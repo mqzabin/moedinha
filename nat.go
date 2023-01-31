@@ -5,26 +5,21 @@ import (
 )
 
 const (
-	decimalBase = 10
-	// natMaxValuePerInt is the greater 999-ish number under 63 bits.
-	natMaxValuePerInt = 999999999999999999
-	// natMaxDigitsPerInt is the amount of natMaxValuePerInt digits.
-	natMaxDigitsPerInt = 18
 	// natNumberOfInts stores the amount of uint64 used to represent the currency.
 	natNumberOfInts = 3
 	// natDigits is the total number of digits that a natural number can have.
-	natDigits = natNumberOfInts * natMaxDigitsPerInt
+	natDigits = natNumberOfInts * maxDigitsPerUint
 )
 
 type nat struct {
 	n1, n2, n3 uint64
 }
 
-// newNatFromString v should have natMaxDigitsPerInt*natNumberOfInts length.
+// newNatFromString v should have maxDigitsPerUint*natNumberOfInts length.
 func newNatFromString(v [natDigits]byte) (nat, error) {
 	// Parsing n3
-	var n3Str [natMaxDigitsPerInt]byte
-	copy(n3Str[:], v[:natMaxDigitsPerInt])
+	var n3Str [maxDigitsPerUint]byte
+	copy(n3Str[:], v[:maxDigitsPerUint])
 
 	n3, err := atoi(n3Str)
 	if err != nil {
@@ -32,8 +27,8 @@ func newNatFromString(v [natDigits]byte) (nat, error) {
 	}
 
 	// Parsing n2
-	var n2Str [natMaxDigitsPerInt]byte
-	copy(n2Str[:], v[natMaxDigitsPerInt:2*natMaxDigitsPerInt])
+	var n2Str [maxDigitsPerUint]byte
+	copy(n2Str[:], v[maxDigitsPerUint:2*maxDigitsPerUint])
 
 	n2, err := atoi(n2Str)
 	if err != nil {
@@ -41,8 +36,8 @@ func newNatFromString(v [natDigits]byte) (nat, error) {
 	}
 
 	// Parsing n1
-	var n1Str [natMaxDigitsPerInt]byte
-	copy(n1Str[:], v[2*natMaxDigitsPerInt:])
+	var n1Str [maxDigitsPerUint]byte
+	copy(n1Str[:], v[2*maxDigitsPerUint:])
 
 	n1, err := atoi(n1Str)
 	if err != nil {
@@ -61,15 +56,15 @@ func (n nat) string() [natDigits]byte {
 
 	// Filling n3
 	n3 := itoa(n.n3)
-	copy(str[:natMaxDigitsPerInt], n3[:])
+	copy(str[:maxDigitsPerUint], n3[:])
 
 	// Filling n2
 	n2 := itoa(n.n2)
-	copy(str[natMaxDigitsPerInt:2*natMaxDigitsPerInt], n2[:])
+	copy(str[maxDigitsPerUint:2*maxDigitsPerUint], n2[:])
 
 	// Filling n1
 	n1 := itoa(n.n1)
-	copy(str[2*natMaxDigitsPerInt:], n1[:])
+	copy(str[2*maxDigitsPerUint:], n1[:])
 
 	return str
 }
@@ -82,7 +77,7 @@ func (n nat) add(v nat) nat {
 	r1, r2 = rebalance(r1, r2)
 	r2, r3 = rebalance(r2, r3)
 
-	if r3 > natMaxValuePerInt {
+	if r3 > maxValuePerUint {
 		panic("natural number overflow")
 	}
 
@@ -95,18 +90,51 @@ func (n nat) difference(v nat) nat {
 	sum := n.add(vCompl)
 
 	return nat{
-		n1: natMaxValuePerInt - sum.n1,
-		n2: natMaxValuePerInt - sum.n2,
-		n3: natMaxValuePerInt - sum.n3,
+		n1: maxValuePerUint - sum.n1,
+		n2: maxValuePerUint - sum.n2,
+		n3: maxValuePerUint - sum.n3,
 	}
 }
 
 func (n nat) complementOf9() nat {
-	r3 := natMaxValuePerInt - n.n3
-	r2 := natMaxValuePerInt - n.n2
-	r1 := natMaxValuePerInt - n.n1
+	r3 := maxValuePerUint - n.n3
+	r2 := maxValuePerUint - n.n2
+	r1 := maxValuePerUint - n.n1
 
 	return nat{n1: r1, n2: r2, n3: r3}
+}
+
+func (n nat) multiply(v nat) (nat, nat) {
+	r1, o1 := n.multiplyByUint(v.n1)
+	r2, o2 := n.multiplyByUint(v.n2)
+	r3, o3 := n.multiplyByUint(v.n3)
+
+	r := r1.add(r2).add(r3)
+
+	return r, nat{
+		n1: o1,
+		n2: o2,
+		n3: o3,
+	}
+}
+
+func (n nat) multiplyByUint(x uint64) (nat, uint64) {
+	r1, o1 := multiplyUint(n.n1, x)
+	r2, o2 := multiplyUint(n.n2, x)
+	r3, o3 := multiplyUint(n.n3, x)
+
+	r2 += o1
+	r3 += o2
+
+	r1, r2 = rebalance(r1, r2)
+	r2, r3 = rebalance(r2, r3)
+	r3, o3 = rebalance(r3, o3)
+
+	return nat{
+		n1: r1,
+		n2: r2,
+		n3: r3,
+	}, o3
 }
 
 func (n nat) isZero() bool {
@@ -185,43 +213,4 @@ func (n nat) lessThan(v nat) bool {
 
 	// are equal
 	return false
-}
-
-func rebalance(src, dest uint64) (newSrc, newDest uint64) {
-	if src <= natMaxValuePerInt {
-		return src, dest
-	}
-
-	dest += src / (natMaxValuePerInt + 1)
-	src %= natMaxValuePerInt + 1
-
-	return src, dest
-}
-
-// atoi is a fork from strconv.Atoi returning uint64
-func atoi(s [natMaxDigitsPerInt]byte) (uint64, error) {
-	var n uint64
-	for _, ch := range s {
-		ch -= '0'
-		if ch > 9 {
-			return 0, fmt.Errorf("invalid syntax converting string to uint64: rune %c", ch)
-		}
-		n = n*10 + uint64(ch)
-	}
-
-	return n, nil
-}
-
-func itoa(v uint64) [natMaxDigitsPerInt]byte {
-	var res [natMaxDigitsPerInt]byte
-	div := v
-
-	for i := range res {
-		digit := byte(div % decimalBase)
-		res[natMaxDigitsPerInt-i-1] = zeroRune + digit
-
-		div /= decimalBase
-	}
-
-	return res
 }

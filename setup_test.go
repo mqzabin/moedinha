@@ -81,17 +81,16 @@ func fuzzyBinaryOperation(f *testing.F, fn func(*testing.T, string, string)) {
 		require.NoError(t, err)
 
 		fn(t, a.String(), b.String())
-		//fn(t, aStr, bStr)
 	})
 }
 
 func seedParser(t *testing.T, n1, n2, n3 uint64, neg bool) string {
 	t.Helper()
 
-	maxValueToNotOverflowSum := uint64(natMaxValuePerInt / 10)
+	maxValueToNotOverflowSum := uint64(maxValuePerUint / 10)
 
-	n1 = n1 % natMaxValuePerInt
-	n2 = n2 % natMaxValuePerInt
+	n1 = n1 % maxValuePerUint
+	n2 = n2 % maxValuePerUint
 	n3 = n3 % maxValueToNotOverflowSum
 
 	s := fmt.Sprintf("%018d%018d%018d", n3, n2, n1)

@@ -11,7 +11,7 @@ const (
 	// currencyDecimalDigits defines how many decimal digits should be used.
 	currencyDecimalDigits = 10
 	// currencyMaxIntegerDigits the amount of digits before the decimal pointer.
-	currencyMaxIntegerDigits = (natNumberOfInts * natMaxDigitsPerInt) - currencyDecimalDigits
+	currencyMaxIntegerDigits = (natNumberOfInts * maxDigitsPerUint) - currencyDecimalDigits
 	// currencyDecimalSeparatorSymbol the separator used for decimal digits.
 	currencyDecimalSeparatorSymbol = '.'
 	// currencyNegativeSymbol symbol used to represent a negative number as a string.
@@ -272,5 +272,27 @@ func (c Currency) Sub(v Currency) Currency {
 
 	return Currency{
 		n: v.n.difference(c.n),
+	}
+}
+
+func (c Currency) Mul(v Currency) Currency {
+	// draft
+	mul, _ := c.n.multiply(v.n)
+
+	pow10 := uint64(1)
+	for i := 0; i < currencyDecimalDigits; i++ {
+		pow10 *= base
+	}
+
+	if c.neg == v.neg {
+		return Currency{
+			n:   mul,
+			neg: false,
+		}
+	}
+
+	return Currency{
+		n:   mul,
+		neg: true,
 	}
 }
