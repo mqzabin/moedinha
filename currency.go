@@ -8,68 +8,71 @@ import (
 )
 
 const (
-	// decimalPlaces defines how many decimal digits should be used.
-	currDecimalDigits = 10
-	// currMaxIntegerDigits ...
-	currMaxIntegerDigits = (natNumberOfInts * natMaxDigitsPerInt) - currDecimalDigits
-	//
-	currDecimalPointerSymbol = '.'
-	//
-	currNegativeSymbol = '-'
+	// currencyDecimalDigits defines how many decimal digits should be used.
+	currencyDecimalDigits = 10
+	// currencyMaxIntegerDigits the amount of digits before the decimal pointer.
+	currencyMaxIntegerDigits = (natNumberOfInts * natMaxDigitsPerInt) - currencyDecimalDigits
+	// currencyDecimalSeparatorSymbol the separator used for decimal digits.
+	currencyDecimalSeparatorSymbol = '.'
+	// currencyNegativeSymbol symbol used to represent a negative number as a string.
+	currencyNegativeSymbol = '-'
+	// maxCurrencyLen stores the maximum length of a currency string. +2 for possible decimal separator and
+	// negative symbol
+	maxCurrencyLen = natDigits + 2
 )
 
-var (
-	zeroFiller = strings.Repeat("0", natNumberOfInts*natMaxDigitsPerInt)
-
-	currencyRegexp = regexp.MustCompile(fmt.Sprintf(
-		`^-?\d{1,%d}(\%c\d{0,%d})?$`,
-		currMaxIntegerDigits,
-		currDecimalPointerSymbol,
-		currDecimalDigits,
-	))
-)
+var currencyRegexp = regexp.MustCompile(fmt.Sprintf(
+	`^-?\d{1,%d}(\%c\d{0,%d})?$`,
+	currencyMaxIntegerDigits,
+	currencyDecimalSeparatorSymbol,
+	currencyDecimalDigits,
+))
 
 type Currency struct {
 	n   nat
 	neg bool
 }
 
-func FromDecimalString(v string) (Currency, error) {
-	if !currencyRegexp.MatchString(v) {
+func FromDecimalString(str string) (Currency, error) {
+	if !currencyRegexp.MatchString(str) {
 		return Currency{}, errors.New("invalid currency format")
 	}
 
 	var neg bool
-	if v[0] == currNegativeSymbol {
+	if str[0] == currencyNegativeSymbol {
 		neg = true
-		v = v[1:]
+		str = str[1:] // Ignore the negative symbol.
 	}
 
-	// pointIndex (right to left)
-	pointIndex := strings.IndexRune(v, currDecimalPointerSymbol)
+	l := len(str)
 
-	var decimalDigits int
-	if pointIndex >= 0 {
-		decimalDigits = len(v) - (pointIndex + 1)
-		v = v[:pointIndex] + v[pointIndex+1:]
+	var natStr [natDigits]byte
+
+	separatorIndex := strings.IndexRune(str, currencyDecimalSeparatorSymbol)
+
+	decimalDigits := 0
+	integerDigits := l
+	if separatorIndex >= 0 {
+		decimalDigits = l - (separatorIndex + 1)
+		integerDigits = l - decimalDigits - 1 // -1 for the separator.
 	}
 
-	n1Pow := currDecimalDigits - decimalDigits
-	if n1Pow > currDecimalDigits {
-		panic("decimal digits overflow")
+	// How much the copy should shift in natural number string. For example:
+	// 0.001 should be positioned as xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0001xxxxxxx in natural number string.
+	cpRightShift := currencyDecimalDigits - decimalDigits
+	cpLeftShift := natDigits - (decimalDigits + integerDigits) - cpRightShift
+
+	copy(natStr[cpLeftShift:cpLeftShift+integerDigits], str[:integerDigits])
+	if decimalDigits > 0 {
+		copy(natStr[cpLeftShift+integerDigits:cpLeftShift+integerDigits+decimalDigits], str[integerDigits+1:])
 	}
 
-	leftZeros := (natMaxDigitsPerInt * natNumberOfInts) - (len(v) + n1Pow)
+	copy(natStr[:cpLeftShift], zeroFiller[:cpLeftShift])
+	copy(natStr[natDigits-cpRightShift:], zeroFiller[:cpRightShift])
 
-	var builder strings.Builder
-	builder.Grow(natMaxDigitsPerInt * natNumberOfInts)
-	builder.WriteString(zeroFiller[:leftZeros])
-	builder.WriteString(v)
-	builder.WriteString(zeroFiller[:n1Pow])
-
-	n, err := newNatFromString(builder.String())
+	n, err := newNatFromString(natStr)
 	if err != nil {
-		return Currency{}, fmt.Errorf("creating natural number from string")
+		return Currency{}, fmt.Errorf("creating natural number from string: %w", err)
 	}
 
 	return Currency{
@@ -83,14 +86,19 @@ func (c Currency) String() string {
 		return "0"
 	}
 
-	str := c.n.string()
-	str = fmt.Sprintf("%s.%s", str[:currMaxIntegerDigits], str[currMaxIntegerDigits:])
+	natString := c.n.string()
 
-	//return str
+	currString := [maxCurrencyLen]byte{zeroRune}
+	// Copy integer part, preserving 0 index to negative symbol.
+	copy(currString[1:currencyMaxIntegerDigits+1], natString[:currencyMaxIntegerDigits])
+	// Setting the decimal separator.
+	currString[currencyMaxIntegerDigits+1] = currencyDecimalSeparatorSymbol
+	// Copying the decimal part.
+	copy(currString[currencyMaxIntegerDigits+2:], natString[currencyMaxIntegerDigits:])
 
 	var leftZerosToRemove int
-	for _, ch := range str {
-		if ch != '0' {
+	for i := 1; i < maxCurrencyLen; i++ {
+		if currString[i] != zeroRune {
 			break
 		}
 
@@ -98,28 +106,30 @@ func (c Currency) String() string {
 	}
 
 	var rightZerosToRemove int
-	for i := len(str) - 1; i >= 0; i-- {
-		if str[i] != '0' {
+	for i := maxCurrencyLen - 1; i >= 0; i-- {
+		if currString[i] != zeroRune {
 			break
 		}
 
 		rightZerosToRemove++
 	}
 
-	if str[len(str)-rightZerosToRemove-1] == '.' {
+	// Removing decimal separator if it's an integer number, e.g. 1.0 turn into 1
+	if currString[maxCurrencyLen-rightZerosToRemove-1] == currencyDecimalSeparatorSymbol {
 		rightZerosToRemove++
 	}
 
-	if str[leftZerosToRemove] == '.' {
+	// Preserving at least one 0 at left side of separator, e.g. .1 turn into 0.1
+	if currString[leftZerosToRemove+1] == currencyDecimalSeparatorSymbol {
 		leftZerosToRemove--
 	}
 
-	var signal string
 	if c.neg {
-		signal += "-"
+		currString[leftZerosToRemove] = currencyNegativeSymbol
+		leftZerosToRemove--
 	}
 
-	return signal + str[leftZerosToRemove:len(str)-rightZerosToRemove]
+	return string(currString[leftZerosToRemove+1 : len(currString)-rightZerosToRemove])
 }
 
 func (c Currency) IsZero() bool {

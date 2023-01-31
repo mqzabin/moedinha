@@ -1,17 +1,19 @@
 package moedinha
 
 import (
-	"errors"
 	"fmt"
 )
 
 const (
+	decimalBase = 10
 	// natMaxValuePerInt is the greater 999-ish number under 63 bits.
 	natMaxValuePerInt = 999999999999999999
-	// Digits of natMaxValuePerInt.
+	// natMaxDigitsPerInt is the amount of natMaxValuePerInt digits.
 	natMaxDigitsPerInt = 18
 	// natNumberOfInts stores the amount of uint64 used to represent the currency.
 	natNumberOfInts = 3
+	// natDigits is the total number of digits that a natural number can have.
+	natDigits = natNumberOfInts * natMaxDigitsPerInt
 )
 
 type nat struct {
@@ -19,18 +21,30 @@ type nat struct {
 }
 
 // newNatFromString v should have natMaxDigitsPerInt*natNumberOfInts length.
-func newNatFromString(v string) (nat, error) {
-	n3, err := atoi(v[:natMaxDigitsPerInt])
+func newNatFromString(v [natDigits]byte) (nat, error) {
+	// Parsing n3
+	var n3Str [natMaxDigitsPerInt]byte
+	copy(n3Str[:], v[:natMaxDigitsPerInt])
+
+	n3, err := atoi(n3Str)
 	if err != nil {
 		return nat{}, fmt.Errorf("error decoding natural number: %w", err)
 	}
 
-	n2, err := atoi(v[natMaxDigitsPerInt : 2*natMaxDigitsPerInt])
+	// Parsing n2
+	var n2Str [natMaxDigitsPerInt]byte
+	copy(n2Str[:], v[natMaxDigitsPerInt:2*natMaxDigitsPerInt])
+
+	n2, err := atoi(n2Str)
 	if err != nil {
 		return nat{}, fmt.Errorf("error decoding natural number: %w", err)
 	}
 
-	n1, err := atoi(v[2*natMaxDigitsPerInt:])
+	// Parsing n1
+	var n1Str [natMaxDigitsPerInt]byte
+	copy(n1Str[:], v[2*natMaxDigitsPerInt:])
+
+	n1, err := atoi(n1Str)
 	if err != nil {
 		return nat{}, fmt.Errorf("error decoding natural number: %w", err)
 	}
@@ -42,8 +56,20 @@ func newNatFromString(v string) (nat, error) {
 	}, nil
 }
 
-func (n nat) string() string {
-	str := fmt.Sprintf("%018d%018d%018d", n.n3, n.n2, n.n1)
+func (n nat) string() [natDigits]byte {
+	var str [natDigits]byte
+
+	// Filling n3
+	n3 := itoa(n.n3)
+	copy(str[:natMaxDigitsPerInt], n3[:])
+
+	// Filling n2
+	n2 := itoa(n.n2)
+	copy(str[natMaxDigitsPerInt:2*natMaxDigitsPerInt], n2[:])
+
+	// Filling n1
+	n1 := itoa(n.n1)
+	copy(str[2*natMaxDigitsPerInt:], n1[:])
 
 	return str
 }
@@ -173,19 +199,29 @@ func rebalance(src, dest uint64) (newSrc, newDest uint64) {
 }
 
 // atoi is a fork from strconv.Atoi returning uint64
-func atoi(s string) (uint64, error) {
-	if len(s) > natMaxDigitsPerInt {
-		return 0, errors.New("uint64 overflow converting string to uint64")
-	}
-
+func atoi(s [natMaxDigitsPerInt]byte) (uint64, error) {
 	var n uint64
-	for _, ch := range []byte(s) {
+	for _, ch := range s {
 		ch -= '0'
 		if ch > 9 {
-			return 0, errors.New("invalid syntax converting string to uint64")
+			return 0, fmt.Errorf("invalid syntax converting string to uint64: rune %c", ch)
 		}
 		n = n*10 + uint64(ch)
 	}
 
 	return n, nil
+}
+
+func itoa(v uint64) [natMaxDigitsPerInt]byte {
+	var res [natMaxDigitsPerInt]byte
+	div := v
+
+	for i := range res {
+		digit := byte(div % decimalBase)
+		res[natMaxDigitsPerInt-i-1] = zeroRune + digit
+
+		div /= decimalBase
+	}
+
+	return res
 }
