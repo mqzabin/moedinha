@@ -9,9 +9,10 @@ import (
 
 const (
 	// currencyDecimalDigits defines how many decimal digits should be used.
-	currencyDecimalDigits = 10
+	// In this case, use an entire uint.
+	currencyDecimalDigits = maxDigitsPerUint
 	// currencyMaxIntegerDigits the amount of digits before the decimal pointer.
-	currencyMaxIntegerDigits = (natNumberOfInts * maxDigitsPerUint) - currencyDecimalDigits
+	currencyMaxIntegerDigits = (natNumberOfUints * maxDigitsPerUint) - currencyDecimalDigits
 	// currencyDecimalSeparatorSymbol the separator used for decimal digits.
 	currencyDecimalSeparatorSymbol = '.'
 	// currencyNegativeSymbol symbol used to represent a negative number as a string.
@@ -118,12 +119,12 @@ func (c Currency) String() string {
 		rightZerosToRemove++
 	}
 
-	// Removing decimal separator if it's an integer number, e.g. 1.0 turn into 1
+	// Removing decimal separator if it's an integer number, e.g: "1.0" turn into "1"
 	if currString[maxCurrencyLen-rightZerosToRemove-1] == currencyDecimalSeparatorSymbol {
 		rightZerosToRemove++
 	}
 
-	// Preserving at least one 0 at left side of separator, e.g. .1 turn into 0.1
+	// Preserving at least one 0 at left side of separator, e.g: ".1" turn into "0.1"
 	if currString[leftZerosToRemove+1] == currencyDecimalSeparatorSymbol {
 		leftZerosToRemove--
 	}
@@ -229,7 +230,8 @@ func (c Currency) Sub(v Currency) Currency {
 		// c - (-v) = c + v
 		if v.neg {
 			return Currency{
-				n: c.n.add(v.n),
+				n:   c.n.add(v.n),
+				neg: false,
 			}
 		}
 
@@ -255,7 +257,8 @@ func (c Currency) Sub(v Currency) Currency {
 		}
 
 		return Currency{
-			n: c.n.difference(v.n),
+			n:   c.n.difference(v.n),
+			neg: false,
 		}
 	}
 
@@ -271,28 +274,35 @@ func (c Currency) Sub(v Currency) Currency {
 	}
 
 	return Currency{
-		n: v.n.difference(c.n),
+		n:   v.n.difference(c.n),
+		neg: false,
 	}
 }
 
 func (c Currency) Mul(v Currency) Currency {
-	// draft
-	mul, _ := c.n.multiply(v.n)
+	mul, overflow := c.n.multiply(v.n)
 
-	pow10 := uint64(1)
-	for i := 0; i < currencyDecimalDigits; i++ {
-		pow10 *= base
+	// The following code depends on currencyDecimalDigits == maxDigitsPerUint.
+	var nResult nat
+	nResult[3] = mul[2]
+	nResult[2] = mul[1]
+	nResult[1] = mul[0]
+
+	nResult[0] = overflow[3]
+
+	if overflow[2] > 0 || overflow[1] > 0 || overflow[0] > 0 {
+		panic(fmt.Sprintf("multiplication overflow: %s * %s", c.String(), v.String()))
 	}
 
 	if c.neg == v.neg {
 		return Currency{
-			n:   mul,
+			n:   nResult,
 			neg: false,
 		}
 	}
 
 	return Currency{
-		n:   mul,
+		n:   nResult,
 		neg: true,
 	}
 }

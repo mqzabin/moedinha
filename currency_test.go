@@ -8,192 +8,124 @@ import (
 )
 
 func FuzzAdd(f *testing.F) {
-	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
-		t.Log(aStr, " +")
-		t.Log(bStr, " =")
-
-		a, err := NewFromString(aStr)
+	fuzzyBinaryOperation(f, natDigits-1, func(t *testing.T, a, b Currency) {
+		sa, err := decimal.NewFromString(a.String())
 		require.NoError(t, err)
 
-		b, err := NewFromString(bStr)
-		require.NoError(t, err)
-
-		sa, err := decimal.NewFromString(aStr)
-		require.NoError(t, err)
-
-		sb, err := decimal.NewFromString(bStr)
+		sb, err := decimal.NewFromString(b.String())
 		require.NoError(t, err)
 
 		result := a.Add(b)
-		t.Log(result.String())
+
 		require.True(t, result.Equal(b.Add(a)))
 
 		sResult := sa.Add(sb)
-		t.Log(sResult.String(), " (shopspring)")
+
 		require.Equal(t, sResult.String(), result.String())
 
-		t.Log("pass!")
 	})
 }
 
 func FuzzSub(f *testing.F) {
-	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
-		t.Log(aStr, " -")
-		t.Log(bStr, " =")
+	fuzzyBinaryOperation(f, natDigits-1, func(t *testing.T, a, b Currency) {
 
-		a, err := NewFromString(aStr)
+		sa, err := decimal.NewFromString(a.String())
 		require.NoError(t, err)
 
-		b, err := NewFromString(bStr)
-		require.NoError(t, err)
-
-		sa, err := decimal.NewFromString(aStr)
-		require.NoError(t, err)
-
-		sb, err := decimal.NewFromString(bStr)
+		sb, err := decimal.NewFromString(b.String())
 		require.NoError(t, err)
 
 		result := a.Sub(b)
-		t.Log(result.String())
 
 		sResult := sa.Sub(sb)
-		t.Log(sResult.String(), " (shopspring)")
+
 		require.Equal(t, sResult.String(), result.String())
 
-		t.Log("pass!")
 	})
 }
 
 func FuzzMul(f *testing.F) {
-	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
-		t.Log(aStr, " X")
-		t.Log(bStr, " =")
+	fuzzyBinaryOperation(f, natDigits/2, func(t *testing.T, a, b Currency) {
 
-		a, err := NewFromString(aStr)
+		sa, err := decimal.NewFromString(a.String())
 		require.NoError(t, err)
 
-		b, err := NewFromString(bStr)
+		sb, err := decimal.NewFromString(b.String())
 		require.NoError(t, err)
 
-		sa, err := decimal.NewFromString(aStr)
-		require.NoError(t, err)
-
-		sb, err := decimal.NewFromString(bStr)
-		require.NoError(t, err)
+		if as, bs := sa.StringFixed(currencyDecimalDigits), sb.StringFixed(currencyDecimalDigits); len(as)+len(bs)-4 > natDigits {
+			t.Skip(as, bs)
+		}
 
 		result := a.Mul(b)
-		t.Log(result.String())
 
-		sResult := sa.Mul(sb)
-		t.Log(sResult.String(), " (shopspring)")
-		require.Equal(t, sResult.String(), result.String())
+		sResult := sa.Mul(sb).Truncate(currencyDecimalDigits)
 
-		t.Log("pass!")
+		require.Equalf(t, sResult.String(), result.String(), "a: %s, b: %s", a.String(), b.String())
 	})
 }
 
 func FuzzGreaterThan(f *testing.F) {
-	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
-		t.Log(aStr, " >")
-		t.Log(bStr, " =")
+	fuzzyBinaryOperation(f, natDigits, func(t *testing.T, a, b Currency) {
 
-		a, err := NewFromString(aStr)
+		sa, err := decimal.NewFromString(a.String())
 		require.NoError(t, err)
 
-		b, err := NewFromString(bStr)
-		require.NoError(t, err)
-
-		sa, err := decimal.NewFromString(aStr)
-		require.NoError(t, err)
-
-		sb, err := decimal.NewFromString(bStr)
+		sb, err := decimal.NewFromString(b.String())
 		require.NoError(t, err)
 
 		result := a.GreaterThan(b)
-		t.Log("Result: ", result)
 
 		sResult := sa.GreaterThan(sb)
-		t.Log("Result: ", sResult, " (shospring)")
-		require.Equal(t, sResult, result)
 
-		t.Log("pass!")
+		require.Equal(t, sResult, result)
 	})
 }
 
 func FuzzLessThan(f *testing.F) {
-	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
-		t.Log(aStr, " <")
-		t.Log(bStr, " =")
+	fuzzyBinaryOperation(f, natDigits, func(t *testing.T, a, b Currency) {
 
-		a, err := NewFromString(aStr)
+		sa, err := decimal.NewFromString(a.String())
 		require.NoError(t, err)
 
-		b, err := NewFromString(bStr)
-		require.NoError(t, err)
-
-		sa, err := decimal.NewFromString(aStr)
-		require.NoError(t, err)
-
-		sb, err := decimal.NewFromString(bStr)
+		sb, err := decimal.NewFromString(b.String())
 		require.NoError(t, err)
 
 		result := a.LessThan(b)
-		t.Log("Result: ", result)
 
 		sResult := sa.LessThan(sb)
-		t.Log("Result: ", sResult, " (shospring)")
-		require.Equal(t, sResult, result)
 
-		t.Log("pass!")
+		require.Equal(t, sResult, result)
 	})
 }
 
 func FuzzEqual(f *testing.F) {
-	fuzzyBinaryOperation(f, func(t *testing.T, aStr, bStr string) {
-		t.Log(aStr, " ==")
-		t.Log(bStr, " =")
+	fuzzyBinaryOperation(f, natDigits, func(t *testing.T, a, b Currency) {
 
-		a, err := NewFromString(aStr)
+		sa, err := decimal.NewFromString(a.String())
 		require.NoError(t, err)
 
-		b, err := NewFromString(bStr)
-		require.NoError(t, err)
-
-		sa, err := decimal.NewFromString(aStr)
-		require.NoError(t, err)
-
-		sb, err := decimal.NewFromString(bStr)
+		sb, err := decimal.NewFromString(b.String())
 		require.NoError(t, err)
 
 		result := a.Equal(b)
-		t.Log("Result: ", result)
 
 		sResult := sa.Equal(sb)
-		t.Log("Result: ", sResult, " (shospring)")
-		require.Equal(t, sResult, result)
 
-		t.Log("pass!")
+		require.Equal(t, sResult, result)
 	})
 }
 
 func FuzzIsZero(f *testing.F) {
-	fuzzyUnaryOperation(f, func(t *testing.T, str string) {
-		t.Log(str, " is zero?")
-
-		a, err := NewFromString(str)
-		require.NoError(t, err)
-
-		sa, err := decimal.NewFromString(str)
+	fuzzyUnaryOperation(f, natDigits, func(t *testing.T, a Currency) {
+		sa, err := decimal.NewFromString(a.String())
 		require.NoError(t, err)
 
 		result := a.IsZero()
-		t.Log("Result: ", result)
 
 		sResult := sa.IsZero()
-		t.Log("Result: ", sResult, " (shospring)")
-		require.Equal(t, sResult, result)
 
-		t.Log("pass!")
+		require.Equal(t, sResult, result)
 	})
 }
 
@@ -289,6 +221,39 @@ func BenchmarkAdd(b *testing.B) {
 }
 
 func BenchmarkSub(b *testing.B) {
+	aStr := "10000000000000000010000000000000000010000.00000000000001"
+	bStr := "0.999999999999999999"
+
+	var (
+		mCurrency Currency
+		sCurrency decimal.Decimal
+	)
+
+	b.Run("moedinha", func(b *testing.B) {
+		x, _ := NewFromString(aStr)
+
+		y, _ := NewFromString(bStr)
+
+		for i := 0; i < b.N; i++ {
+			mCurrency = x.Mul(y)
+		}
+	})
+
+	b.Run("shopspring", func(b *testing.B) {
+		x, _ := decimal.NewFromString(aStr)
+
+		y, _ := decimal.NewFromString(bStr)
+
+		for i := 0; i < b.N; i++ {
+			sCurrency = x.Mul(y)
+		}
+	})
+
+	b.Log(mCurrency.String())
+	b.Log(sCurrency.String())
+}
+
+func BenchmarkMul(b *testing.B) {
 	aStr := "8901234567890124190123456789012345612345678.9012345678"
 	bStr := "2345678901234567500000000000000000000000000"
 
