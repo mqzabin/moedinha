@@ -111,7 +111,7 @@ func FuzzBinaryOperations(f *testing.F) {
 
 func FuzzUnaryOperations(f *testing.F) {
 	fuzzyUnaryOperation(f, func(t *testing.T, seed fuzzSeed) {
-		t.Run("IsZero + string", func(t *testing.T) {
+		t.Run("IsZero + String", func(t *testing.T) {
 			// no overflow can occur
 			truncateToAvoidOverflow := naturalMaxLen
 

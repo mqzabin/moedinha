@@ -1,15 +1,27 @@
 package moedinha
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
 
-var fuzzNumberSeed = generateSeed()
-
 type fuzzSeed struct {
 	n   [numberOfUints]uint64
 	neg bool
+}
+
+// fuzzAddArgs return the args that should be used in f.Add() to represent the seed.
+func (fs fuzzSeed) fuzzAddArgs() []any {
+	args := make([]any, 0, numberOfUints+1)
+
+	for j := range fs.n {
+		args = append(args, fs.n[j])
+	}
+
+	args = append(args, fs.neg)
+
+	return args
 }
 
 func (fs fuzzSeed) string(truncateTo int) string {
@@ -51,29 +63,34 @@ func generateMaxArray() [numberOfUints]uint64 {
 	return seed
 }
 
-func generateSeed() [][numberOfUints]uint64 {
-	seeds := make([][numberOfUints]uint64, 0, 2*numberOfUints)
+func generateSeeds() []fuzzSeed {
+	seeds := make([]fuzzSeed, 0, 4*numberOfUints)
 
 	// Upper triangular matrix
 	for i := 0; i < numberOfUints; i++ {
-		var seed [numberOfUints]uint64
+		var seedN [numberOfUints]uint64
 
 		for j := i; j < numberOfUints; j++ {
-			seed[j] = maxValuePerUint
+			seedN[j] = maxValuePerUint
 		}
 
-		seeds = append(seeds, seed)
+		seeds = append(seeds, fuzzSeed{n: seedN, neg: false})
 	}
 
 	// Lower triangular matrix
 	for i := 0; i < numberOfUints; i++ {
-		seed := generateMaxArray()
+		seedN := generateMaxArray()
 
 		for j := i; j < numberOfUints; j++ {
-			seed[j] = 0
+			seedN[j] = 0
 		}
 
-		seeds = append(seeds, seed)
+		seeds = append(seeds, fuzzSeed{n: seedN, neg: false})
+	}
+
+	// Doubling for negative values
+	for i := range seeds {
+		seeds = append(seeds, fuzzSeed{n: seeds[i].n, neg: true})
 	}
 
 	return seeds
@@ -82,61 +99,90 @@ func generateSeed() [][numberOfUints]uint64 {
 func fuzzyUnaryOperation(f *testing.F, fn func(*testing.T, fuzzSeed)) {
 	f.Helper()
 
-	for a := 0; a < 2; a++ {
-		aNeg := a == 0
-		for i := 0; i < len(fuzzNumberSeed); i++ {
-			f.Add(
-				fuzzNumberSeed[i][0], fuzzNumberSeed[i][1], fuzzNumberSeed[i][2], fuzzNumberSeed[i][3],
-				aNeg,
-			)
-		}
+	seeds := generateSeeds()
+
+	for _, seed := range seeds {
+		f.Add(seed.fuzzAddArgs()...)
 	}
 
-	f.Fuzz(func(t *testing.T, n1, n2, n3, n4 uint64, neg bool) {
-		t.Helper()
+	typeUint64 := reflect.TypeOf(uint64(1))
+	typeBool := reflect.TypeOf(true)
 
-		a := fuzzSeed{
-			n:   [numberOfUints]uint64{n1, n2, n3, n4},
-			neg: neg,
+	seedArgs := make([]reflect.Type, 0, numberOfUints+1)
+	for i := 0; i < numberOfUints; i++ {
+		seedArgs = append(seedArgs, typeUint64)
+	}
+	seedArgs = append(seedArgs, typeBool)
+
+	funcParameters := append([]reflect.Type{reflect.TypeOf(&testing.T{})}, seedArgs...)
+
+	funcSignature := reflect.FuncOf(funcParameters, []reflect.Type{}, false)
+
+	fuzzFunc := reflect.MakeFunc(funcSignature, func(args []reflect.Value) (results []reflect.Value) {
+		t := args[0].Interface().(*testing.T)
+		t.Parallel()
+
+		var a fuzzSeed
+		for i := range a.n {
+			a.n[i] = args[i+1].Interface().(uint64)
 		}
+		a.neg = args[numberOfUints+1].Interface().(bool)
 
 		fn(t, a)
+
+		return nil
 	})
+
+	f.Fuzz(fuzzFunc.Interface())
 }
 
 func fuzzyBinaryOperation(f *testing.F, fn func(*testing.T, fuzzSeed, fuzzSeed)) {
 	f.Helper()
 
-	for a := 0; a < 2; a++ {
-		aNeg := a == 0
-		for b := 0; b < 2; b++ {
-			bNeg := b == 0
-			for i := 0; i < len(fuzzNumberSeed); i++ {
-				for j := 0; j < len(fuzzNumberSeed); j++ {
-					f.Add(
-						fuzzNumberSeed[i][0], fuzzNumberSeed[i][1], fuzzNumberSeed[i][2], fuzzNumberSeed[i][3], // first number
-						aNeg,
-						fuzzNumberSeed[j][0], fuzzNumberSeed[j][1], fuzzNumberSeed[j][2], fuzzNumberSeed[j][3], // second number
-						bNeg,
-					)
-				}
-			}
+	seeds := generateSeeds()
+
+	for _, seedA := range seeds {
+		for _, seedB := range seeds {
+			f.Add(append(
+				seedA.fuzzAddArgs(),
+				seedB.fuzzAddArgs()...,
+			)...)
 		}
 	}
 
-	f.Fuzz(func(t *testing.T, aN1, aN2, aN3, aN4 uint64, aNeg bool, bN1, bN2, bN3, bN4 uint64, bNeg bool) {
+	typeUint64 := reflect.TypeOf(uint64(1))
+	typeBool := reflect.TypeOf(true)
+
+	seedArgs := make([]reflect.Type, 0, numberOfUints+1)
+	for i := 0; i < numberOfUints; i++ {
+		seedArgs = append(seedArgs, typeUint64)
+	}
+	seedArgs = append(seedArgs, typeBool)
+
+	funcParameters := append(append([]reflect.Type{reflect.TypeOf(&testing.T{})}, seedArgs...), seedArgs...)
+
+	funcSignature := reflect.FuncOf(funcParameters, []reflect.Type{}, false)
+
+	fuzzFunc := reflect.MakeFunc(funcSignature, func(args []reflect.Value) (results []reflect.Value) {
+		t := args[0].Interface().(*testing.T)
 		t.Parallel()
 
-		a := fuzzSeed{
-			n:   [numberOfUints]uint64{aN1, aN2, aN3, aN4},
-			neg: aNeg,
+		var a fuzzSeed
+		for i := range a.n {
+			a.n[i] = args[i+1].Interface().(uint64)
 		}
+		a.neg = args[numberOfUints+1].Interface().(bool)
 
-		b := fuzzSeed{
-			n:   [numberOfUints]uint64{bN1, bN2, bN3, bN4},
-			neg: bNeg,
+		var b fuzzSeed
+		for i := range b.n {
+			b.n[i] = args[i+numberOfUints+2].Interface().(uint64)
 		}
+		b.neg = args[2*(numberOfUints+1)].Interface().(bool)
 
 		fn(t, a, b)
+
+		return nil
 	})
+
+	f.Fuzz(fuzzFunc.Interface())
 }
