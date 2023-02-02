@@ -1,6 +1,7 @@
 package moedinha
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -13,8 +14,8 @@ func FuzzBinaryOperations(f *testing.F) {
 			// sum could lead to a +1 increase in number of digits.
 			truncateToAvoidOverflow := naturalMaxLen - 1
 
-			aStr := seedA.String(truncateToAvoidOverflow)
-			bStr := seedB.String(truncateToAvoidOverflow)
+			aStr := seedA.string(truncateToAvoidOverflow)
+			bStr := seedB.string(truncateToAvoidOverflow)
 
 			a, err := NewFromString(aStr)
 			require.NoError(t, err)
@@ -40,11 +41,27 @@ func FuzzBinaryOperations(f *testing.F) {
 		})
 
 		t.Run("Mul", func(t *testing.T) {
-			// multiplication could double the number of digits.
-			truncateToAvoidOverflow := naturalMaxLen / 2
+			// Multiplication result sum the number of digits of "a" and "b" in "a*b".
+			// So, we should ensure that digits(a) + digits(b) don't overflow the
+			// naturalMaxLen constant.
+			// To ensure this, first we generate the "a" with near max digits (naturalMaxLen-1),
+			// then we generate "b" with naturalMaxLen - digits(a), so we ensure that
+			// digits(a) + digits(b) = naturalMaxLen.
 
-			aStr := seedA.String(truncateToAvoidOverflow)
-			bStr := seedB.String(truncateToAvoidOverflow)
+			// toTrim is the string of runes that can be removed from
+			// left of a number until what is left is the natural digits.
+			const toTrim = "" + string(integerNegativeSymbol) + string(currencyDecimalSeparatorSymbol) + string(zeroRune)
+
+			aStr := seedA.string(naturalMaxLen - 1)
+
+			// This operation will return the number of natural digits of "a".
+			aNatDigits := len(strings.TrimLeft(aStr, toTrim))
+
+			truncateToAvoidOverflow := naturalMaxLen - aNatDigits
+
+			bStr := seedB.string(truncateToAvoidOverflow)
+
+			// Start the test.
 
 			a, err := NewFromString(aStr)
 			require.NoError(t, err)
@@ -68,8 +85,8 @@ func FuzzBinaryOperations(f *testing.F) {
 			// no overflow can occur.
 			truncateToAvoidOverflow := naturalMaxLen
 
-			aStr := seedA.String(truncateToAvoidOverflow)
-			bStr := seedB.String(truncateToAvoidOverflow)
+			aStr := seedA.string(truncateToAvoidOverflow)
+			bStr := seedB.string(truncateToAvoidOverflow)
 
 			a, err := NewFromString(aStr)
 			require.NoError(t, err)
@@ -94,11 +111,11 @@ func FuzzBinaryOperations(f *testing.F) {
 
 func FuzzUnaryOperations(f *testing.F) {
 	fuzzyUnaryOperation(f, func(t *testing.T, seed fuzzSeed) {
-		t.Run("IsZero + String", func(t *testing.T) {
+		t.Run("IsZero + string", func(t *testing.T) {
 			// no overflow can occur
 			truncateToAvoidOverflow := naturalMaxLen
 
-			str := seed.String(truncateToAvoidOverflow)
+			str := seed.string(truncateToAvoidOverflow)
 
 			a, err := NewFromString(str)
 			require.NoError(t, err)

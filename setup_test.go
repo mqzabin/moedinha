@@ -12,8 +12,7 @@ type fuzzSeed struct {
 	neg bool
 }
 
-func (fs fuzzSeed) String(truncateTo int) string {
-
+func (fs fuzzSeed) string(truncateTo int) string {
 	var result string
 
 	for i := range fs.n {
@@ -23,6 +22,10 @@ func (fs fuzzSeed) String(truncateTo int) string {
 	}
 
 	result = result[:truncateTo]
+	if truncateTo < currencyDecimalDigits {
+		result = strings.Repeat(string(zeroRune), currencyDecimalDigits-truncateTo) + result
+		truncateTo = currencyDecimalDigits
+	}
 
 	result = result[:truncateTo-currencyDecimalDigits] + string(currencyDecimalSeparatorSymbol) + result[truncateTo-currencyDecimalDigits:]
 
