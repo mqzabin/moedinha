@@ -7,125 +7,108 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func FuzzAdd(f *testing.F) {
-	fuzzyBinaryOperation(f, natDigits-1, func(t *testing.T, a, b Currency) {
-		sa, err := decimal.NewFromString(a.String())
-		require.NoError(t, err)
+func FuzzBinaryOperations(f *testing.F) {
+	fuzzyBinaryOperation(f, func(t *testing.T, seedA, seedB fuzzSeed) {
+		t.Run("Add + Sub", func(t *testing.T) {
+			// sum could lead to a +1 increase in number of digits.
+			truncateToAvoidOverflow := naturalMaxLen - 1
 
-		sb, err := decimal.NewFromString(b.String())
-		require.NoError(t, err)
+			aStr := seedA.String(truncateToAvoidOverflow)
+			bStr := seedB.String(truncateToAvoidOverflow)
 
-		result := a.Add(b)
+			a, err := NewFromString(aStr)
+			require.NoError(t, err)
 
-		require.True(t, result.Equal(b.Add(a)))
+			b, err := NewFromString(bStr)
+			require.NoError(t, err)
 
-		sResult := sa.Add(sb)
+			sa, err := decimal.NewFromString(aStr)
+			require.NoError(t, err)
 
-		require.Equal(t, sResult.String(), result.String())
+			sb, err := decimal.NewFromString(bStr)
+			require.NoError(t, err)
 
+			addResult := a.Add(b)
+			sAddResult := sa.Add(sb)
+
+			require.Equal(t, sAddResult.String(), addResult.String())
+
+			subResult := a.Sub(b)
+			sSubResult := sa.Sub(sb)
+
+			require.Equal(t, sSubResult.String(), subResult.String())
+		})
+
+		t.Run("Mul", func(t *testing.T) {
+			// multiplication could double the number of digits.
+			truncateToAvoidOverflow := naturalMaxLen / 2
+
+			aStr := seedA.String(truncateToAvoidOverflow)
+			bStr := seedB.String(truncateToAvoidOverflow)
+
+			a, err := NewFromString(aStr)
+			require.NoError(t, err)
+
+			b, err := NewFromString(bStr)
+			require.NoError(t, err)
+
+			sa, err := decimal.NewFromString(aStr)
+			require.NoError(t, err)
+
+			sb, err := decimal.NewFromString(bStr)
+			require.NoError(t, err)
+
+			mulResult := a.Mul(b)
+			sMulResult := sa.Mul(sb).Truncate(currencyDecimalDigits)
+
+			require.Equal(t, sMulResult.String(), mulResult.String())
+		})
+
+		t.Run("Comparisons", func(t *testing.T) {
+			// no overflow can occur.
+			truncateToAvoidOverflow := naturalMaxLen
+
+			aStr := seedA.String(truncateToAvoidOverflow)
+			bStr := seedB.String(truncateToAvoidOverflow)
+
+			a, err := NewFromString(aStr)
+			require.NoError(t, err)
+
+			b, err := NewFromString(bStr)
+			require.NoError(t, err)
+
+			sa, err := decimal.NewFromString(aStr)
+			require.NoError(t, err)
+
+			sb, err := decimal.NewFromString(bStr)
+			require.NoError(t, err)
+
+			require.Equal(t, sa.Equal(sb), a.Equal(b))
+			require.Equal(t, sa.GreaterThan(sb), a.GreaterThan(b))
+			require.Equal(t, sa.GreaterThanOrEqual(sb), a.GreaterOrEqualThan(b))
+			require.Equal(t, sa.LessThan(sb), a.LessThan(b))
+			require.Equal(t, sa.LessThanOrEqual(sb), a.LessOrEqualThan(b))
+		})
 	})
 }
 
-func FuzzSub(f *testing.F) {
-	fuzzyBinaryOperation(f, natDigits-1, func(t *testing.T, a, b Currency) {
+func FuzzUnaryOperations(f *testing.F) {
+	fuzzyUnaryOperation(f, func(t *testing.T, seed fuzzSeed) {
+		t.Run("IsZero + String", func(t *testing.T) {
+			// no overflow can occur
+			truncateToAvoidOverflow := naturalMaxLen
 
-		sa, err := decimal.NewFromString(a.String())
-		require.NoError(t, err)
+			str := seed.String(truncateToAvoidOverflow)
 
-		sb, err := decimal.NewFromString(b.String())
-		require.NoError(t, err)
+			a, err := NewFromString(str)
+			require.NoError(t, err)
 
-		result := a.Sub(b)
+			sa, err := decimal.NewFromString(str)
+			require.NoError(t, err)
 
-		sResult := sa.Sub(sb)
-
-		require.Equal(t, sResult.String(), result.String())
-
-	})
-}
-
-func FuzzMul(f *testing.F) {
-	fuzzyBinaryOperation(f, natDigits/2, func(t *testing.T, a, b Currency) {
-
-		sa, err := decimal.NewFromString(a.String())
-		require.NoError(t, err)
-
-		sb, err := decimal.NewFromString(b.String())
-		require.NoError(t, err)
-
-		if as, bs := sa.StringFixed(currencyDecimalDigits), sb.StringFixed(currencyDecimalDigits); len(as)+len(bs)-4 > natDigits {
-			t.Skip(as, bs)
-		}
-
-		result := a.Mul(b)
-
-		sResult := sa.Mul(sb).Truncate(currencyDecimalDigits)
-
-		require.Equalf(t, sResult.String(), result.String(), "a: %s, b: %s", a.String(), b.String())
-	})
-}
-
-func FuzzGreaterThan(f *testing.F) {
-	fuzzyBinaryOperation(f, natDigits, func(t *testing.T, a, b Currency) {
-
-		sa, err := decimal.NewFromString(a.String())
-		require.NoError(t, err)
-
-		sb, err := decimal.NewFromString(b.String())
-		require.NoError(t, err)
-
-		result := a.GreaterThan(b)
-
-		sResult := sa.GreaterThan(sb)
-
-		require.Equal(t, sResult, result)
-	})
-}
-
-func FuzzLessThan(f *testing.F) {
-	fuzzyBinaryOperation(f, natDigits, func(t *testing.T, a, b Currency) {
-
-		sa, err := decimal.NewFromString(a.String())
-		require.NoError(t, err)
-
-		sb, err := decimal.NewFromString(b.String())
-		require.NoError(t, err)
-
-		result := a.LessThan(b)
-
-		sResult := sa.LessThan(sb)
-
-		require.Equal(t, sResult, result)
-	})
-}
-
-func FuzzEqual(f *testing.F) {
-	fuzzyBinaryOperation(f, natDigits, func(t *testing.T, a, b Currency) {
-
-		sa, err := decimal.NewFromString(a.String())
-		require.NoError(t, err)
-
-		sb, err := decimal.NewFromString(b.String())
-		require.NoError(t, err)
-
-		result := a.Equal(b)
-
-		sResult := sa.Equal(sb)
-
-		require.Equal(t, sResult, result)
-	})
-}
-
-func FuzzIsZero(f *testing.F) {
-	fuzzyUnaryOperation(f, natDigits, func(t *testing.T, a Currency) {
-		sa, err := decimal.NewFromString(a.String())
-		require.NoError(t, err)
-
-		result := a.IsZero()
-
-		sResult := sa.IsZero()
-
-		require.Equal(t, sResult, result)
+			require.Equal(t, a.IsZero(), sa.IsZero())
+			require.Equal(t, a.String(), sa.String())
+		})
 	})
 }
 

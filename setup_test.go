@@ -1,50 +1,82 @@
 package moedinha
 
 import (
-	"fmt"
+	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 var fuzzNumberSeed = generateSeed()
 
-func generateSeed() [][natNumberOfUints]uint64 {
+type fuzzSeed struct {
+	n   [numberOfUints]uint64
+	neg bool
+}
 
-	preset := [][natNumberOfUints]uint64{
-		{maxValuePerUint, maxValuePerUint, maxValuePerUint, maxValuePerUint},
-		{0, maxValuePerUint, maxValuePerUint, maxValuePerUint},
-		{0, 0, maxValuePerUint, maxValuePerUint},
-		{0, 0, 0, maxValuePerUint},
-		{maxValuePerUint, maxValuePerUint, maxValuePerUint, 0},
-		{maxValuePerUint, maxValuePerUint, 0, 0},
-		{maxValuePerUint, 0, 0, 0},
-		{0, 0, 0, 0},
+func (fs fuzzSeed) String(truncateTo int) string {
+
+	var result string
+
+	for i := range fs.n {
+		fs.n[i], _ = rebalance(fs.n[i], 0)
+		nStr := itoa(fs.n[i])
+		result += string(nStr[:])
 	}
 
-	forCardinality := maxDigitsPerUint * maxDigitsPerUint * maxDigitsPerUint * maxDigitsPerUint / 16
+	result = result[:truncateTo]
 
-	seed := make([][natNumberOfUints]uint64, 0, forCardinality+len(preset))
-	seed = append(seed, preset...)
+	result = result[:truncateTo-currencyDecimalDigits] + string(currencyDecimalSeparatorSymbol) + result[truncateTo-currencyDecimalDigits:]
 
-	for i := 0; i < maxDigitsPerUint/2; i += 2 {
-		for j := 1; j < maxDigitsPerUint/2; j += 2 {
-			for k := 0; k < maxDigitsPerUint/2; k += 2 {
-				for l := 1; l < maxDigitsPerUint/2; l += 2 {
-					a := basePow(i) * uint64((i%2+j%3+k%4+l%5)%10)
-					b := basePow(i) * uint64((j%2+k%3+l%4+i%5)%10)
-					c := basePow(i) * uint64((k%2+l%3+i%4+j%5)%10)
-					d := basePow(i) * uint64((l%2+i%3+j%4+k%5)%10)
-					seed = append(seed, [natNumberOfUints]uint64{a, b, c, d})
-				}
-			}
-		}
+	result = strings.TrimLeft(result, string(zeroRune))
+
+	if result[0] == currencyDecimalSeparatorSymbol {
+		result = string(zeroRune) + result
+	}
+
+	if fs.neg {
+		result = "-" + result
+	}
+
+	return result
+}
+
+func generateMaxArray() [numberOfUints]uint64 {
+	var seed [numberOfUints]uint64
+	for i := range seed {
+		seed[i] = maxValuePerUint
 	}
 
 	return seed
 }
 
-func fuzzyUnaryOperationSeedGenerator(f *testing.F) {
+func generateSeed() [][numberOfUints]uint64 {
+	seeds := make([][numberOfUints]uint64, 0, 2*numberOfUints)
+
+	// Upper triangular matrix
+	for i := 0; i < numberOfUints; i++ {
+		var seed [numberOfUints]uint64
+
+		for j := i; j < numberOfUints; j++ {
+			seed[j] = maxValuePerUint
+		}
+
+		seeds = append(seeds, seed)
+	}
+
+	// Lower triangular matrix
+	for i := 0; i < numberOfUints; i++ {
+		seed := generateMaxArray()
+
+		for j := i; j < numberOfUints; j++ {
+			seed[j] = 0
+		}
+
+		seeds = append(seeds, seed)
+	}
+
+	return seeds
+}
+
+func fuzzyUnaryOperation(f *testing.F, fn func(*testing.T, fuzzSeed)) {
 	f.Helper()
 
 	for a := 0; a < 2; a++ {
@@ -56,9 +88,20 @@ func fuzzyUnaryOperationSeedGenerator(f *testing.F) {
 			)
 		}
 	}
+
+	f.Fuzz(func(t *testing.T, n1, n2, n3, n4 uint64, neg bool) {
+		t.Helper()
+
+		a := fuzzSeed{
+			n:   [numberOfUints]uint64{n1, n2, n3, n4},
+			neg: neg,
+		}
+
+		fn(t, a)
+	})
 }
 
-func fuzzyBinaryOperationSeedGenerator(f *testing.F) {
+func fuzzyBinaryOperation(f *testing.F, fn func(*testing.T, fuzzSeed, fuzzSeed)) {
 	f.Helper()
 
 	for a := 0; a < 2; a++ {
@@ -77,77 +120,20 @@ func fuzzyBinaryOperationSeedGenerator(f *testing.F) {
 			}
 		}
 	}
-}
-
-func fuzzyUnaryOperation(f *testing.F, maxDigits int, fn func(*testing.T, Currency)) {
-	f.Helper()
-
-	fuzzyUnaryOperationSeedGenerator(f)
-
-	f.Fuzz(func(t *testing.T, n1, n2, n3, n4 uint64, neg bool) {
-		t.Helper()
-
-		curr := seedParser(t, maxDigits, n1, n2, n3, n4, neg)
-
-		fn(t, curr)
-	})
-}
-
-func fuzzyBinaryOperation(f *testing.F, maxDigits int, fn func(*testing.T, Currency, Currency)) {
-	f.Helper()
-
-	fuzzyBinaryOperationSeedGenerator(f)
 
 	f.Fuzz(func(t *testing.T, aN1, aN2, aN3, aN4 uint64, aNeg bool, bN1, bN2, bN3, bN4 uint64, bNeg bool) {
 		t.Parallel()
 
-		a := seedParser(t, maxDigits, aN1, aN2, aN3, aN4, aNeg)
-		bStr := seedParser(t, maxDigits, bN1, bN2, bN3, bN4, bNeg)
+		a := fuzzSeed{
+			n:   [numberOfUints]uint64{aN1, aN2, aN3, aN4},
+			neg: aNeg,
+		}
 
-		fn(t, a, bStr)
+		b := fuzzSeed{
+			n:   [numberOfUints]uint64{bN1, bN2, bN3, bN4},
+			neg: bNeg,
+		}
+
+		fn(t, a, b)
 	})
-}
-
-func seedParser(t *testing.T, maxDigits int, n1, n2, n3, n4 uint64, neg bool) Currency {
-	t.Helper()
-
-	n1 = n1 % basePow(maxDigitsPerUint)
-	if maxDigits < maxDigitsPerUint {
-		n1 = n1 % basePow(maxDigits)
-	}
-
-	n2 = n2 % maxValuePerUint
-	if maxDigits < 2*maxDigitsPerUint {
-		n2 = n2 % basePow(maxDigits-maxDigitsPerUint)
-	}
-
-	n3 = n3 % maxValuePerUint
-	if maxDigits < 3*maxDigitsPerUint {
-		n3 = n3 % basePow(maxDigits-2*maxDigitsPerUint)
-	}
-
-	n4 = n4 % maxValuePerUint
-	if maxDigits < 4*maxDigitsPerUint {
-		n4 = n4 % basePow(maxDigits-3*maxDigitsPerUint)
-	}
-
-	s := fmt.Sprintf("%018d%018d%018d%018d", n4, n3, n2, n1)
-	s = s[:currencyMaxIntegerDigits] + string(currencyDecimalSeparatorSymbol) + s[currencyMaxIntegerDigits:]
-	if neg {
-		s = "-" + s
-	}
-
-	curr, err := NewFromString(s)
-	require.NoError(t, err)
-
-	return curr
-}
-
-func basePow(n int) uint64 {
-	r := uint64(1)
-	for i := 0; i < n; i++ {
-		r *= base
-	}
-
-	return r
 }
