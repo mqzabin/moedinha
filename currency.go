@@ -9,97 +9,95 @@ import (
 
 const (
 	// currencyDecimalDigits defines how many decimal digits should be used.
-	// In this case, use an entire uint.
-	currencyDecimalDigits = maxDigitsPerUint
+	currencyDecimalDigits = uintsReservedToDecimal * maxDigitsPerUint
 	// currencyMaxIntegerDigits the amount of digits before the decimal pointer.
-	currencyMaxIntegerDigits = (natNumberOfUints * maxDigitsPerUint) - currencyDecimalDigits
+	currencyMaxIntegerDigits = (numberOfUints * maxDigitsPerUint) - currencyDecimalDigits
 	// currencyDecimalSeparatorSymbol the separator used for decimal digits.
 	currencyDecimalSeparatorSymbol = '.'
 	// currencyNegativeSymbol symbol used to represent a negative number as a string.
 	currencyNegativeSymbol = '-'
 	// maxCurrencyLen stores the maximum length of a currency string. +2 for possible decimal separator and
 	// negative symbol
-	maxCurrencyLen = natDigits + 2
+	maxCurrencyLen = naturalMaxLen + 2
 )
 
-var currencyRegexp = regexp.MustCompile(fmt.Sprintf(
-	`^-?\d{1,%d}(\%c\d{0,%d})?$`,
-	currencyMaxIntegerDigits,
-	currencyDecimalSeparatorSymbol,
-	currencyDecimalDigits,
-))
+var (
+	ErrInvalidFormat = errors.New("invalid format")
+
+	currencyRegexp = regexp.MustCompile(fmt.Sprintf(
+		`^-?\d{1,%d}(\%c\d{0,%d})?$`,
+		currencyMaxIntegerDigits,
+		currencyDecimalSeparatorSymbol,
+		currencyDecimalDigits,
+	))
+)
 
 type Currency struct {
-	n   nat
-	neg bool
+	t integer
 }
 
 func NewFromString(str string) (Currency, error) {
 	if !currencyRegexp.MatchString(str) {
-		return Currency{}, errors.New("invalid currency format")
+		return Currency{}, fmt.Errorf(`validating currency: "%s": %w`, str, ErrInvalidFormat)
 	}
-
-	var neg bool
-	if str[0] == currencyNegativeSymbol {
-		neg = true
-		str = str[1:] // Ignore the negative symbol.
-	}
-
-	l := len(str)
-
-	var natStr [natDigits]byte
 
 	separatorIndex := strings.IndexRune(str, currencyDecimalSeparatorSymbol)
 
+	strLen := len(str)
+
 	decimalDigits := 0
-	integerDigits := l
+	integerDigits := strLen
 	if separatorIndex >= 0 {
-		decimalDigits = l - (separatorIndex + 1)
-		integerDigits = l - decimalDigits - 1 // -1 for the separator.
+		decimalDigits = strLen - (separatorIndex + 1)
+		integerDigits -= decimalDigits + 1
 	}
 
 	// How much the copy should shift in natural number string. For example:
 	// 0.001 should be positioned as xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0001xxxxxxx in natural number string.
 	cpRightShift := currencyDecimalDigits - decimalDigits
-	cpLeftShift := natDigits - (decimalDigits + integerDigits) - cpRightShift
+	cpLeftShift := maxIntegerLen - cpRightShift - (decimalDigits + integerDigits)
 
-	// Copying the integer part.
-	copy(natStr[cpLeftShift:cpLeftShift+integerDigits], str[:integerDigits])
+	intString := [maxIntegerLen]byte{zeroRune}
+
+	// Copy the integer part.
+	copy(intString[cpLeftShift:cpLeftShift+integerDigits], str[:integerDigits])
 	// Copying the decimal part, if any.
 	if decimalDigits > 0 {
-		copy(natStr[cpLeftShift+integerDigits:cpLeftShift+integerDigits+decimalDigits], str[integerDigits+1:])
+		copy(intString[cpLeftShift+integerDigits:cpLeftShift+integerDigits+decimalDigits], str[integerDigits+1:])
 	}
 
 	// Adding leading zeros.
-	copy(natStr[:cpLeftShift], zeroFiller[:cpLeftShift])
+	copy(intString[:cpLeftShift], zeroFiller[:])
 	// Adding trailing zeros.
-	copy(natStr[natDigits-cpRightShift:], zeroFiller[:cpRightShift])
+	copy(intString[maxCurrencyLen-(cpRightShift+1):], zeroFiller[:])
 
-	n, err := newNatFromString(natStr)
-	if err != nil {
-		return Currency{}, fmt.Errorf("creating natural number from string: %w", err)
+	if cpLeftShift != 0 && intString[cpLeftShift] == integerNegativeSymbol {
+		intString[0] = integerNegativeSymbol
+		intString[cpLeftShift] = zeroRune
 	}
 
-	return Currency{
-		n:   n,
-		neg: neg,
-	}, nil
+	intValue, err := newIntegerFromString(intString)
+	if err != nil {
+		return Currency{}, fmt.Errorf("creating underlying integer: %w", err)
+	}
+
+	return Currency{t: intValue}, nil
 }
 
 func (c Currency) String() string {
-	if c.IsZero() {
+	if c.t.isZero() {
 		return "0"
 	}
 
-	natString := c.n.string()
+	intString := c.t.string()
 
-	currString := [maxCurrencyLen]byte{zeroRune}
+	currString := [maxCurrencyLen]byte{}
 	// Copy integer part, preserving 0 index to negative symbol.
-	copy(currString[1:currencyMaxIntegerDigits+1], natString[:currencyMaxIntegerDigits])
+	copy(currString[:currencyMaxIntegerDigits+1], intString[:currencyMaxIntegerDigits+1])
 	// Setting the decimal separator.
 	currString[currencyMaxIntegerDigits+1] = currencyDecimalSeparatorSymbol
 	// Copying the decimal part.
-	copy(currString[currencyMaxIntegerDigits+2:], natString[currencyMaxIntegerDigits:])
+	copy(currString[currencyMaxIntegerDigits+2:], intString[currencyMaxIntegerDigits+1:])
 
 	var leftZerosToRemove int
 	for i := 1; i < maxCurrencyLen; i++ {
@@ -129,7 +127,7 @@ func (c Currency) String() string {
 		leftZerosToRemove--
 	}
 
-	if c.neg {
+	if c.t.neg {
 		currString[leftZerosToRemove] = currencyNegativeSymbol
 		leftZerosToRemove--
 	}
@@ -138,171 +136,55 @@ func (c Currency) String() string {
 }
 
 func (c Currency) IsZero() bool {
-	return c.n.isZero()
+	return c.t.isZero()
 }
 
 func (c Currency) Equal(v Currency) bool {
-	// -0 should be equal to +0.
-	if c.n.isZero() && v.n.isZero() {
-		return true
-	}
-
-	return c.neg == v.neg && c.n.equal(v.n)
+	return c.t.equal(v.t)
 }
 
 func (c Currency) GreaterThan(v Currency) bool {
-	if c.Equal(v) {
-		return false
-	}
+	return c.t.greaterThan(v.t)
+}
 
-	// Equal signal
-	if neg := c.neg; neg == v.neg {
-		if neg {
-			return c.n.lessThan(v.n)
-		}
-
-		return c.n.greaterThan(v.n)
-	}
-
-	if c.neg {
-		return false
-	}
-
-	return true
+func (c Currency) GreaterOrEqualThan(v Currency) bool {
+	return c.t.greaterOrEqualThan(v.t)
 }
 
 func (c Currency) LessThan(v Currency) bool {
-	if c.Equal(v) {
-		return false
-	}
-	// Equal signal
-	if neg := c.neg; neg == v.neg {
-		if neg {
-			return c.n.greaterThan(v.n)
-		}
+	return c.t.lessThan(v.t)
+}
 
-		return c.n.lessThan(v.n)
-	}
-
-	if c.neg {
-		return true
-	}
-
-	return false
+func (c Currency) LessOrEqualThan(v Currency) bool {
+	return c.t.lessOrEqualThan(v.t)
 }
 
 func (c Currency) Add(v Currency) Currency {
-	// "(+c)+(+v) = c+v" or "(-c)+(-v) = -(c+v)"
-	if c.neg == v.neg {
-		return Currency{
-			n:   c.n.add(v.n),
-			neg: c.neg,
-		}
-	}
-
-	// For now on, signals are different.
-
-	// C is negative.
-	if c.neg {
-		// (-c)+(+v) = (+v) - (+c)
-		return v.Sub(Currency{
-			n:   c.n,
-			neg: false,
-		})
-	}
-
-	// V is negative.
-
-	// (+c)+(-v) = (+c) - (+v)
-	return c.Sub(Currency{
-		n:   v.n,
-		neg: false,
-	})
+	return Currency{c.t.add(v.t)}
 }
 
 func (c Currency) Sub(v Currency) Currency {
-	if c.Equal(v) {
-		return Currency{}
-	}
-
-	// different signals
-	if c.neg != v.neg {
-		// c - (-v) = c + v
-		if v.neg {
-			return Currency{
-				n:   c.n.add(v.n),
-				neg: false,
-			}
-		}
-
-		// -c - v = - (c+v)
-		return Currency{
-			n:   c.n.add(v.n),
-			neg: true,
-		}
-	}
-
-	// for now on, equal sign
-
-	// both negative
-	// -c - (-v) = v - c
-	if c.neg {
-		// will be negative.
-		if c.n.greaterThan(v.n) {
-			// v - c = -(c-v)
-			return Currency{
-				n:   v.n.difference(c.n),
-				neg: true,
-			}
-		}
-
-		return Currency{
-			n:   c.n.difference(v.n),
-			neg: false,
-		}
-	}
-
-	// both positive
-	// c - v
-
-	if v.n.greaterThan(c.n) {
-		// c - v = -(v - c)
-		return Currency{
-			n:   c.n.difference(v.n),
-			neg: true,
-		}
-	}
-
-	return Currency{
-		n:   v.n.difference(c.n),
-		neg: false,
-	}
+	return Currency{c.t.sub(v.t)}
 }
 
 func (c Currency) Mul(v Currency) Currency {
-	mul, overflow := c.n.multiply(v.n)
+	intResult, natOverflow := c.t.mul(v.t)
 
-	// The following code depends on currencyDecimalDigits == maxDigitsPerUint.
-	var nResult nat
-	nResult[3] = mul[2]
-	nResult[2] = mul[1]
-	nResult[1] = mul[0]
+	// Since integers and naturals represents numbers with currencyDecimalDigits decimal
+	// digits, the result represents a number with 2*currencyDecimalDigits decimal digits.
+	// There's a need to truncate the first currencyDecimalDigits from the natural number.
+	intResult.n, _ = intResult.n.padRight(uintsReservedToDecimal)
 
-	nResult[0] = overflow[3]
+	// Getting the overflow part that should be summed to result.
+	natOverflow, addToResult := natOverflow.padRight(uintsReservedToDecimal)
 
-	if overflow[2] > 0 || overflow[1] > 0 || overflow[0] > 0 {
+	intResult.n = intResult.n.add(addToResult)
+
+	if !natOverflow.isZero() {
 		panic(fmt.Sprintf("multiplication overflow: %s * %s", c.String(), v.String()))
 	}
 
-	if c.neg == v.neg {
-		return Currency{
-			n:   nResult,
-			neg: false,
-		}
-	}
-
 	return Currency{
-		n:   nResult,
-		neg: true,
+		t: intResult,
 	}
 }

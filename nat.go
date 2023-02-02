@@ -4,213 +4,222 @@ import (
 	"fmt"
 )
 
-const (
-	// natNumberOfInts stores the amount of uint64 used to represent the currency.
-	natNumberOfInts = 3
-	// natDigits is the total number of digits that a natural number can have.
-	natDigits = natNumberOfInts * maxDigitsPerUint
-)
+// naturalMaxLen is the total number of digits that a natural number can have.
+const naturalMaxLen = numberOfUints * maxDigitsPerUint
 
-type nat struct {
-	n1, n2, n3 uint64
+type natural [numberOfUints]uint64
+
+// newNatFromString v should have maxDigitsPerUint*numberOfUints length.
+func newNatFromString(v [naturalMaxLen]byte) (natural, error) {
+	var n natural
+
+	for i := 0; i < numberOfUints; i++ {
+		var str [maxDigitsPerUint]byte
+		copy(str[:], v[i*maxDigitsPerUint:(i+1)*maxDigitsPerUint])
+
+		c, err := atoi(str)
+		if err != nil {
+			return natural{}, fmt.Errorf("error decoding natural number: %w", err)
+		}
+
+		n[i] = c
+	}
+
+	return n, nil
 }
 
-// newNatFromString v should have maxDigitsPerUint*natNumberOfInts length.
-func newNatFromString(v [natDigits]byte) (nat, error) {
-	// Parsing n3
-	var n3Str [maxDigitsPerUint]byte
-	copy(n3Str[:], v[:maxDigitsPerUint])
+func (n natural) string() [naturalMaxLen]byte {
+	var str [naturalMaxLen]byte
 
-	n3, err := atoi(n3Str)
-	if err != nil {
-		return nat{}, fmt.Errorf("error decoding natural number: %w", err)
+	for i := 0; i < numberOfUints; i++ {
+		c := itoa(n[i])
+		copy(str[i*maxDigitsPerUint:(i+1)*maxDigitsPerUint], c[:])
 	}
-
-	// Parsing n2
-	var n2Str [maxDigitsPerUint]byte
-	copy(n2Str[:], v[maxDigitsPerUint:2*maxDigitsPerUint])
-
-	n2, err := atoi(n2Str)
-	if err != nil {
-		return nat{}, fmt.Errorf("error decoding natural number: %w", err)
-	}
-
-	// Parsing n1
-	var n1Str [maxDigitsPerUint]byte
-	copy(n1Str[:], v[2*maxDigitsPerUint:])
-
-	n1, err := atoi(n1Str)
-	if err != nil {
-		return nat{}, fmt.Errorf("error decoding natural number: %w", err)
-	}
-
-	return nat{
-		n1: n1,
-		n2: n2,
-		n3: n3,
-	}, nil
-}
-
-func (n nat) string() [natDigits]byte {
-	var str [natDigits]byte
-
-	// Filling n3
-	n3 := itoa(n.n3)
-	copy(str[:maxDigitsPerUint], n3[:])
-
-	// Filling n2
-	n2 := itoa(n.n2)
-	copy(str[maxDigitsPerUint:2*maxDigitsPerUint], n2[:])
-
-	// Filling n1
-	n1 := itoa(n.n1)
-	copy(str[2*maxDigitsPerUint:], n1[:])
 
 	return str
 }
 
-func (n nat) add(v nat) nat {
-	r3 := n.n3 + v.n3
-	r2 := n.n2 + v.n2
-	r1 := n.n1 + v.n1
+func (n natural) add(v natural) natural {
+	var result natural
 
-	r1, r2 = rebalance(r1, r2)
-	r2, r3 = rebalance(r2, r3)
+	for i := numberOfUints - 1; i >= 0; i-- {
+		result[i] = n[i] + v[i]
 
-	if r3 > maxValuePerUint {
-		panic("natural number overflow")
+		if i != numberOfUints-1 {
+			result[i+1], result[i] = rebalance(result[i+1], result[i])
+		}
 	}
 
-	return nat{n1: r1, n2: r2, n3: r3}
+	var over uint64
+	result[0], over = rebalance(result[0], over)
+
+	if over > 0 {
+		panic(fmt.Sprintf("natural number overflow: %s + %s", n.string(), v.string()))
+	}
+
+	return result
 }
 
-// difference "n" should always lesser than "v"
-func (n nat) difference(v nat) nat {
-	vCompl := v.complementOf9()
-	sum := n.add(vCompl)
+func (n natural) padRight(padding int) (natural, natural) {
+	var padded, loss natural
 
-	return nat{
-		n1: maxValuePerUint - sum.n1,
-		n2: maxValuePerUint - sum.n2,
-		n3: maxValuePerUint - sum.n3,
+	if padding == 0 {
+		return n, natural{}
 	}
+
+	if padding < 0 {
+		return n.padLeft(-padding)
+	}
+
+	if padding >= 2*numberOfUints {
+		panic("invalid padding value passed to padRight")
+	}
+
+	for i := 0; i < numberOfUints; i++ {
+		if i+padding < numberOfUints {
+			padded[i+padding] = n[i]
+			continue
+		}
+		loss[i+padding-numberOfUints] = n[i]
+	}
+
+	return padded, loss
 }
 
-func (n nat) complementOf9() nat {
-	r3 := maxValuePerUint - n.n3
-	r2 := maxValuePerUint - n.n2
-	r1 := maxValuePerUint - n.n1
+func (n natural) padLeft(padding int) (natural, natural) {
+	var padded, overflow natural
 
-	return nat{n1: r1, n2: r2, n3: r3}
+	if padding == 0 {
+		return n, natural{}
+	}
+
+	if padding < 0 {
+		return n.padRight(-padding)
+	}
+
+	if padding >= 2*numberOfUints {
+		panic("invalid padding value passed to padLeft")
+	}
+
+	for i := 0; i < numberOfUints; i++ {
+		if i-padding < 0 {
+			overflow[numberOfUints+i-padding] = n[i]
+			continue
+		}
+
+		padded[i-padding] = n[i]
+	}
+
+	return padded, overflow
 }
 
-func (n nat) multiply(v nat) (nat, nat) {
-	r1, o1 := n.multiplyByUint(v.n1)
-	r2, o2 := n.multiplyByUint(v.n2)
-	r3, o3 := n.multiplyByUint(v.n3)
+// sub calculates the subtraction: n - v.
+// "v" should be lesser than "n" to not overflow the natural domain.
+func (n natural) sub(v natural) natural {
+	vCompl := n.complement()
+	sum := v.add(vCompl)
 
-	r := r1.add(r2).add(r3)
-
-	return r, nat{
-		n1: o1,
-		n2: o2,
-		n3: o3,
+	var result natural
+	for i := 0; i < numberOfUints; i++ {
+		result[i] = maxValuePerUint - sum[i]
 	}
+
+	return result
 }
 
-func (n nat) multiplyByUint(x uint64) (nat, uint64) {
-	r1, o1 := multiplyUint(n.n1, x)
-	r2, o2 := multiplyUint(n.n2, x)
-	r3, o3 := multiplyUint(n.n3, x)
+// complement calculates the complement of n.
+// Complement is basically 999...(# of digits) - n.
+func (n natural) complement() natural {
+	var result natural
 
-	r2 += o1
-	r3 += o2
+	for i := 0; i < numberOfUints; i++ {
+		result[i] = maxValuePerUint - n[i]
+	}
 
-	r1, r2 = rebalance(r1, r2)
-	r2, r3 = rebalance(r2, r3)
-	r3, o3 = rebalance(r3, o3)
-
-	return nat{
-		n1: r1,
-		n2: r2,
-		n3: r3,
-	}, o3
+	return result
 }
 
-func (n nat) isZero() bool {
-	return n.n1 == 0 && n.n2 == 0 && n.n3 == 0
+func (n natural) multiply(v natural) (natural, natural) {
+	var result, overflow natural
+
+	for i := 0; i < numberOfUints; i++ {
+		mr, mo := n.multiplyByUint(v[i])
+
+		padded, paddingOverflow := mr.padLeft(numberOfUints - i - 1)
+
+		overflow[i] += mo
+		overflow = overflow.add(paddingOverflow)
+		result = result.add(padded)
+	}
+
+	return result, overflow
 }
 
-func (n nat) equal(v nat) bool {
-	return n.n1 == v.n1 && n.n2 == v.n2 && n.n3 == v.n3
+func (n natural) multiplyByUint(x uint64) (natural, uint64) {
+	var result, overflow natural
+
+	for i := numberOfUints - 1; i >= 0; i-- {
+		result[i], overflow[i] = multiplyUint(n[i], x)
+
+		if i != numberOfUints-1 {
+			result[i] += overflow[i+1]
+			result[i+1], result[i] = rebalance(result[i+1], result[i])
+		}
+	}
+
+	return result, overflow[0]
 }
 
-func (n nat) greaterThan(v nat) bool {
-	// TODO: Simplify this to a single boolean statement.
+func (n natural) isZero() bool {
+	return n == natural{}
+}
 
-	if n.n3 > v.n3 {
-		return true
-	}
+func (n natural) equal(v natural) bool {
+	return n == v
+}
 
-	if n.n3 < v.n3 {
-		return false
-	}
+func (n natural) greaterThan(v natural) bool {
+	return n.greaterOnEqual(v, false)
+}
 
-	// n3 are equal
+func (n natural) greaterOrEqualThan(v natural) bool {
+	return n.greaterOnEqual(v, true)
+}
 
-	if n.n2 > v.n2 {
-		return true
-	}
+func (n natural) greaterOnEqual(v natural, onEqual bool) bool {
+	for i := 0; i < numberOfUints; i++ {
+		if n[i] > v[i] {
+			return true
+		}
 
-	if n.n2 < v.n2 {
-		return false
-	}
-
-	// n2 are equal
-
-	if n.n1 > v.n1 {
-		return true
-	}
-
-	if n.n1 < v.n1 {
-		return false
+		if n[i] < v[i] {
+			return false
+		}
 	}
 
 	// are equal
-	return false
+	return onEqual
 }
 
-func (n nat) lessThan(v nat) bool {
-	// TODO: Simplify this to a single boolean statement.
+func (n natural) lessThan(v natural) bool {
+	return n.lessOnEqual(v, false)
+}
 
-	if n.n3 < v.n3 {
-		return true
-	}
+func (n natural) lessOrEqualThan(v natural) bool {
+	return n.lessOnEqual(v, false)
+}
 
-	if n.n3 > v.n3 {
-		return false
-	}
+func (n natural) lessOnEqual(v natural, onEqual bool) bool {
+	for i := 0; i < numberOfUints; i++ {
+		if n[i] < v[i] {
+			return true
+		}
 
-	// n3 are equal
-
-	if n.n2 < v.n2 {
-		return true
-	}
-
-	if n.n2 > v.n2 {
-		return false
-	}
-
-	// n2 are equal
-
-	if n.n1 < v.n1 {
-		return true
-	}
-
-	if n.n1 > v.n1 {
-		return false
+		if n[i] > v[i] {
+			return false
+		}
 	}
 
 	// are equal
-	return false
+	return onEqual
 }
