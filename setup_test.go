@@ -96,6 +96,29 @@ func generateSeeds() []fuzzSeed {
 	return seeds
 }
 
+func fuzzyFuncSignature(numberOfSeeds int) reflect.Type {
+	const seedParamLen = numberOfUints + 1
+
+	typeUint64 := reflect.TypeOf(uint64(1))
+	typeBool := reflect.TypeOf(true)
+
+	seedArgs := make([]reflect.Type, 0, seedParamLen)
+	for i := 0; i < numberOfUints; i++ {
+		seedArgs = append(seedArgs, typeUint64)
+	}
+	seedArgs = append(seedArgs, typeBool)
+
+	funcParameters := make([]reflect.Type, 0, 1+numberOfSeeds*seedParamLen)
+	funcParameters = append(funcParameters, reflect.TypeOf(&testing.T{}))
+	for i := 0; i < numberOfSeeds; i++ {
+		funcParameters = append(funcParameters, seedArgs...)
+	}
+
+	funcSignature := reflect.FuncOf(funcParameters, []reflect.Type{}, false)
+
+	return funcSignature
+}
+
 func fuzzyUnaryOperation(f *testing.F, fn func(*testing.T, fuzzSeed)) {
 	f.Helper()
 
@@ -105,18 +128,7 @@ func fuzzyUnaryOperation(f *testing.F, fn func(*testing.T, fuzzSeed)) {
 		f.Add(seed.fuzzAddArgs()...)
 	}
 
-	typeUint64 := reflect.TypeOf(uint64(1))
-	typeBool := reflect.TypeOf(true)
-
-	seedArgs := make([]reflect.Type, 0, numberOfUints+1)
-	for i := 0; i < numberOfUints; i++ {
-		seedArgs = append(seedArgs, typeUint64)
-	}
-	seedArgs = append(seedArgs, typeBool)
-
-	funcParameters := append([]reflect.Type{reflect.TypeOf(&testing.T{})}, seedArgs...)
-
-	funcSignature := reflect.FuncOf(funcParameters, []reflect.Type{}, false)
+	funcSignature := fuzzyFuncSignature(1)
 
 	fuzzFunc := reflect.MakeFunc(funcSignature, func(args []reflect.Value) (results []reflect.Value) {
 		t := args[0].Interface().(*testing.T)
@@ -150,18 +162,7 @@ func fuzzyBinaryOperation(f *testing.F, fn func(*testing.T, fuzzSeed, fuzzSeed))
 		}
 	}
 
-	typeUint64 := reflect.TypeOf(uint64(1))
-	typeBool := reflect.TypeOf(true)
-
-	seedArgs := make([]reflect.Type, 0, numberOfUints+1)
-	for i := 0; i < numberOfUints; i++ {
-		seedArgs = append(seedArgs, typeUint64)
-	}
-	seedArgs = append(seedArgs, typeBool)
-
-	funcParameters := append(append([]reflect.Type{reflect.TypeOf(&testing.T{})}, seedArgs...), seedArgs...)
-
-	funcSignature := reflect.FuncOf(funcParameters, []reflect.Type{}, false)
+	funcSignature := fuzzyFuncSignature(2)
 
 	fuzzFunc := reflect.MakeFunc(funcSignature, func(args []reflect.Value) (results []reflect.Value) {
 		t := args[0].Interface().(*testing.T)
