@@ -7,8 +7,9 @@ import (
 const (
 	// integerNegativeSymbol symbol used to represent a negative number as a string.
 	integerNegativeSymbol = '-'
-
-	maxIntegerLen = naturalMaxLen + 1
+	// integerMaxLen is the maximum length that an integer string.
+	// +1 to the possible negative symbol.
+	integerMaxLen = naturalMaxLen + 1
 )
 
 type integer struct {
@@ -16,7 +17,7 @@ type integer struct {
 	neg bool
 }
 
-func newIntegerFromString(str [maxIntegerLen]byte) (integer, error) {
+func newIntegerFromString(str [integerMaxLen]byte) (integer, error) {
 	var neg bool
 	if str[0] == integerNegativeSymbol {
 		neg = true
@@ -37,11 +38,11 @@ func newIntegerFromString(str [maxIntegerLen]byte) (integer, error) {
 	}, nil
 }
 
-func (t integer) string() [maxIntegerLen]byte {
-	intString := [maxIntegerLen]byte{zeroRune}
+func (t integer) string() [integerMaxLen]byte {
+	intString := [integerMaxLen]byte{zeroRune}
 
 	if t.isZero() {
-		copy(intString[:], zeroFiller[:maxIntegerLen])
+		copy(intString[:], zeroFiller[:integerMaxLen])
 
 		return intString
 	}

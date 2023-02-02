@@ -14,11 +14,9 @@ const (
 	currencyMaxIntegerDigits = (numberOfUints * maxDigitsPerUint) - currencyDecimalDigits
 	// currencyDecimalSeparatorSymbol the separator used for decimal digits.
 	currencyDecimalSeparatorSymbol = '.'
-	// currencyNegativeSymbol symbol used to represent a negative number as a string.
-	currencyNegativeSymbol = '-'
-	// maxCurrencyLen stores the maximum length of a currency string. +2 for possible decimal separator and
-	// negative symbol
-	maxCurrencyLen = naturalMaxLen + 2
+	// currencyMaxLen stores the maximum length of a currency string.
+	// +1 for possible decimal separator.
+	currencyMaxLen = integerMaxLen + 1
 )
 
 var (
@@ -55,9 +53,9 @@ func NewFromString(str string) (Currency, error) {
 	// How much the copy should shift in integer number string. For example:
 	// 0.1 is shifted to left by 17 digits if the support is for 18 digits.
 	cpRightShift := currencyDecimalDigits - decimalDigits
-	cpLeftShift := maxIntegerLen - cpRightShift - (decimalDigits + integerDigits)
+	cpLeftShift := integerMaxLen - cpRightShift - (decimalDigits + integerDigits)
 
-	intString := [maxIntegerLen]byte{zeroRune}
+	intString := [integerMaxLen]byte{zeroRune}
 
 	// Copy the integer part.
 	copy(intString[cpLeftShift:cpLeftShift+integerDigits], str[:integerDigits])
@@ -69,7 +67,7 @@ func NewFromString(str string) (Currency, error) {
 	// Adding leading zeros.
 	copy(intString[:cpLeftShift], zeroFiller[:])
 	// Adding trailing zeros.
-	copy(intString[maxCurrencyLen-(cpRightShift+1):], zeroFiller[:])
+	copy(intString[currencyMaxLen-(cpRightShift+1):], zeroFiller[:])
 
 	if cpLeftShift != 0 && intString[cpLeftShift] == integerNegativeSymbol {
 		intString[0] = integerNegativeSymbol
@@ -91,7 +89,7 @@ func (c Currency) String() string {
 
 	intString := c.t.string()
 
-	currString := [maxCurrencyLen]byte{}
+	currString := [currencyMaxLen]byte{}
 	// Copy integer part, preserving 0 index to negative symbol.
 	copy(currString[:currencyMaxIntegerDigits+1], intString[:currencyMaxIntegerDigits+1])
 	// Setting the decimal separator.
@@ -100,7 +98,7 @@ func (c Currency) String() string {
 	copy(currString[currencyMaxIntegerDigits+2:], intString[currencyMaxIntegerDigits+1:])
 
 	var leftZerosToRemove int
-	for i := 1; i < maxCurrencyLen; i++ {
+	for i := 1; i < currencyMaxLen; i++ {
 		if currString[i] != zeroRune {
 			break
 		}
@@ -109,7 +107,7 @@ func (c Currency) String() string {
 	}
 
 	var rightZerosToRemove int
-	for i := maxCurrencyLen - 1; i >= 0; i-- {
+	for i := currencyMaxLen - 1; i >= 0; i-- {
 		if currString[i] != zeroRune {
 			break
 		}
@@ -118,7 +116,7 @@ func (c Currency) String() string {
 	}
 
 	// Removing decimal separator if it's an integer number, e.g: "1.0" turn into "1"
-	if currString[maxCurrencyLen-rightZerosToRemove-1] == currencyDecimalSeparatorSymbol {
+	if currString[currencyMaxLen-rightZerosToRemove-1] == currencyDecimalSeparatorSymbol {
 		rightZerosToRemove++
 	}
 
@@ -128,7 +126,7 @@ func (c Currency) String() string {
 	}
 
 	if c.t.neg {
-		currString[leftZerosToRemove] = currencyNegativeSymbol
+		currString[leftZerosToRemove] = integerNegativeSymbol
 		leftZerosToRemove--
 	}
 
