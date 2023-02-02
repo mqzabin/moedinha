@@ -4,12 +4,12 @@ import (
 	"fmt"
 )
 
-// naturalMaxLen is the total number of digits that a natural number can have.
+// naturalMaxLen is the max length of a natural number string .
 const naturalMaxLen = numberOfUints * maxDigitsPerUint
 
+// natural represents a natural number.
 type natural [numberOfUints]uint64
 
-// newNatFromString v should have maxDigitsPerUint*numberOfUints length.
 func newNatFromString(v [naturalMaxLen]byte) (natural, error) {
 	var n natural
 
@@ -39,6 +39,7 @@ func (n natural) string() [naturalMaxLen]byte {
 	return str
 }
 
+// add sums two natural numbers. This operation panics on overflow.
 func (n natural) add(v natural) natural {
 	var result natural
 
@@ -60,6 +61,9 @@ func (n natural) add(v natural) natural {
 	return result
 }
 
+// padRight moves the components of the natural number to right.
+// This operation is equivalent to n^(-padding*maxDigitsPerUint).
+// The second return is the operation overflow to the right, called "loss".
 func (n natural) padRight(padding int) (natural, natural) {
 	var padded, loss natural
 
@@ -86,6 +90,9 @@ func (n natural) padRight(padding int) (natural, natural) {
 	return padded, loss
 }
 
+// padLeft moves the components of the natural number to left.
+// This operation is equivalent to n^(padding*maxDigitsPerUint).
+// The second return is the operation overflow.
 func (n natural) padLeft(padding int) (natural, natural) {
 	var padded, overflow natural
 
@@ -139,11 +146,14 @@ func (n natural) complement() natural {
 	return result
 }
 
-func (n natural) multiply(v natural) (natural, natural) {
+// mul multiplies two natural numbers.
+// The first return is the result, and the second return is the overflow
+// of the operation, if any.
+func (n natural) mul(v natural) (natural, natural) {
 	var result, overflow natural
 
 	for i := 0; i < numberOfUints; i++ {
-		mr, mo := n.multiplyByUint(v[i])
+		mr, mo := n.mulByUint64(v[i])
 
 		padded, paddingOverflow := mr.padLeft(numberOfUints - i - 1)
 
@@ -155,7 +165,10 @@ func (n natural) multiply(v natural) (natural, natural) {
 	return result, overflow
 }
 
-func (n natural) multiplyByUint(x uint64) (natural, uint64) {
+// mulByUint64 multiplies a natural number by an uint64.
+// The first return is the result, and the second return is the overflow
+// of the operation, if any.
+func (n natural) mulByUint64(x uint64) (natural, uint64) {
 	var result, overflow natural
 
 	for i := numberOfUints - 1; i >= 0; i-- {
@@ -182,7 +195,7 @@ func (n natural) greaterThan(v natural) bool {
 	return n.greaterOnEqual(v, false)
 }
 
-func (n natural) greaterOrEqualThan(v natural) bool {
+func (n natural) greaterThanOrEqual(v natural) bool {
 	return n.greaterOnEqual(v, true)
 }
 
@@ -205,7 +218,7 @@ func (n natural) lessThan(v natural) bool {
 	return n.lessOnEqual(v, false)
 }
 
-func (n natural) lessOrEqualThan(v natural) bool {
+func (n natural) lessThanOrEqual(v natural) bool {
 	return n.lessOnEqual(v, false)
 }
 

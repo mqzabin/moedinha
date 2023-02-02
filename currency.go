@@ -145,16 +145,16 @@ func (c Currency) GreaterThan(v Currency) bool {
 	return c.t.greaterThan(v.t)
 }
 
-func (c Currency) GreaterOrEqualThan(v Currency) bool {
-	return c.t.greaterOrEqualThan(v.t)
+func (c Currency) GreaterThanOrEqual(v Currency) bool {
+	return c.t.greaterThanOrEqual(v.t)
 }
 
 func (c Currency) LessThan(v Currency) bool {
 	return c.t.lessThan(v.t)
 }
 
-func (c Currency) LessOrEqualThan(v Currency) bool {
-	return c.t.lessOrEqualThan(v.t)
+func (c Currency) LessThanOrEqual(v Currency) bool {
+	return c.t.lessThanOrEqual(v.t)
 }
 
 func (c Currency) Add(v Currency) Currency {

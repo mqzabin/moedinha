@@ -58,103 +58,7 @@ func (t integer) string() [integerMaxLen]byte {
 	return intString
 }
 
-func (t integer) isZero() bool {
-	return t.n.isZero()
-}
-
-func (t integer) equal(v integer) bool {
-	// -0 should be equal to +0.
-	if t.n.isZero() && v.n.isZero() {
-		return true
-	}
-
-	return t.neg == v.neg && t.n.equal(v.n)
-}
-
-func (t integer) greaterThan(v integer) bool {
-	if t.isZero() && v.isZero() {
-		return false
-	}
-
-	// equal signal
-	if neg := t.neg; neg == v.neg {
-		if neg {
-			return t.n.lessThan(v.n)
-		}
-
-		return t.n.greaterThan(v.n)
-	}
-
-	if t.neg {
-		return false
-	}
-
-	return true
-}
-
-func (t integer) greaterOrEqualThan(v integer) bool {
-	if t.equal(v) {
-		return true
-	}
-
-	// equal signal
-	if neg := t.neg; neg == v.neg {
-		if neg {
-			return t.n.lessThan(v.n)
-		}
-
-		return t.n.greaterThan(v.n)
-	}
-
-	if t.neg {
-		return false
-	}
-
-	return true
-}
-
-func (t integer) lessThan(v integer) bool {
-	if t.isZero() && v.isZero() {
-		return false
-	}
-
-	// equal signs
-	if neg := t.neg; neg == v.neg {
-		if neg {
-			return t.n.greaterThan(v.n)
-		}
-
-		return t.n.lessThan(v.n)
-	}
-
-	if t.neg {
-		return true
-	}
-
-	return false
-}
-
-func (t integer) lessOrEqualThan(v integer) bool {
-	if t.equal(v) {
-		return true
-	}
-
-	// equal signs
-	if neg := t.neg; neg == v.neg {
-		if neg {
-			return t.n.greaterThan(v.n)
-		}
-
-		return t.n.lessThan(v.n)
-	}
-
-	if t.neg {
-		return true
-	}
-
-	return false
-}
-
+// add sum two integers.
 func (t integer) add(v integer) integer {
 	// "(+t)+(+v) = t+v" or "(-t)+(-v) = -(t+v)"
 	if t.neg == v.neg {
@@ -184,6 +88,7 @@ func (t integer) add(v integer) integer {
 	})
 }
 
+// sub calculates the subtraction "t - v".
 func (t integer) sub(v integer) integer {
 	if t.equal(v) {
 		return integer{}
@@ -246,8 +151,11 @@ func (t integer) sub(v integer) integer {
 	}
 }
 
+// mul multiplies two integer numbers.
+// The first return is the result, and the second return is the overflow
+// of the operation, if any, as a natural number.
 func (t integer) mul(v integer) (integer, natural) {
-	natResult, natOverflow := t.n.multiply(v.n)
+	natResult, natOverflow := t.n.mul(v.n)
 
 	if t.neg == v.neg {
 		return integer{
@@ -260,4 +168,101 @@ func (t integer) mul(v integer) (integer, natural) {
 		n:   natResult,
 		neg: true,
 	}, natOverflow
+}
+
+func (t integer) isZero() bool {
+	return t.n.isZero()
+}
+
+func (t integer) equal(v integer) bool {
+	// -0 should be equal to +0.
+	if t.n.isZero() && v.n.isZero() {
+		return true
+	}
+
+	return t.neg == v.neg && t.n.equal(v.n)
+}
+
+func (t integer) greaterThan(v integer) bool {
+	if t.isZero() && v.isZero() {
+		return false
+	}
+
+	// equal signal
+	if neg := t.neg; neg == v.neg {
+		if neg {
+			return t.n.lessThan(v.n)
+		}
+
+		return t.n.greaterThan(v.n)
+	}
+
+	if t.neg {
+		return false
+	}
+
+	return true
+}
+
+func (t integer) greaterThanOrEqual(v integer) bool {
+	if t.equal(v) {
+		return true
+	}
+
+	// equal signal
+	if neg := t.neg; neg == v.neg {
+		if neg {
+			return t.n.lessThan(v.n)
+		}
+
+		return t.n.greaterThan(v.n)
+	}
+
+	if t.neg {
+		return false
+	}
+
+	return true
+}
+
+func (t integer) lessThan(v integer) bool {
+	if t.isZero() && v.isZero() {
+		return false
+	}
+
+	// equal signs
+	if neg := t.neg; neg == v.neg {
+		if neg {
+			return t.n.greaterThan(v.n)
+		}
+
+		return t.n.lessThan(v.n)
+	}
+
+	if t.neg {
+		return true
+	}
+
+	return false
+}
+
+func (t integer) lessThanOrEqual(v integer) bool {
+	if t.equal(v) {
+		return true
+	}
+
+	// equal signs
+	if neg := t.neg; neg == v.neg {
+		if neg {
+			return t.n.greaterThan(v.n)
+		}
+
+		return t.n.lessThan(v.n)
+	}
+
+	if t.neg {
+		return true
+	}
+
+	return false
 }

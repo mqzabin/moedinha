@@ -27,6 +27,8 @@ func splitInHalf(a uint64) (uint64, uint64) {
 	return a / (halfMaxValuePerUint + 1), a % (halfMaxValuePerUint + 1)
 }
 
+// multiplyUint multiply two uint64 and return the result and
+// the overflow of the multiplication.
 func multiplyUint(a, b uint64) (uint64, uint64) {
 	// All those components are less than 32-bits values.
 	aLeft, aRight := splitInHalf(a) // aLeft is the right bits of a, and al the right bits.

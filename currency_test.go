@@ -102,9 +102,9 @@ func FuzzBinaryOperations(f *testing.F) {
 
 			require.Equal(t, sa.Equal(sb), a.Equal(b))
 			require.Equal(t, sa.GreaterThan(sb), a.GreaterThan(b))
-			require.Equal(t, sa.GreaterThanOrEqual(sb), a.GreaterOrEqualThan(b))
+			require.Equal(t, sa.GreaterThanOrEqual(sb), a.GreaterThanOrEqual(b))
 			require.Equal(t, sa.LessThan(sb), a.LessThan(b))
-			require.Equal(t, sa.LessThanOrEqual(sb), a.LessOrEqualThan(b))
+			require.Equal(t, sa.LessThanOrEqual(sb), a.LessThanOrEqual(b))
 		})
 	})
 }
