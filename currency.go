@@ -52,8 +52,8 @@ func NewFromString(str string) (Currency, error) {
 		integerDigits -= decimalDigits + 1
 	}
 
-	// How much the copy should shift in natural number string. For example:
-	// 0.001 should be positioned as xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0001xxxxxxx in natural number string.
+	// How much the copy should shift in integer number string. For example:
+	// 0.1 is shifted to left by 17 digits if the support is for 18 digits.
 	cpRightShift := currencyDecimalDigits - decimalDigits
 	cpLeftShift := maxIntegerLen - cpRightShift - (decimalDigits + integerDigits)
 
