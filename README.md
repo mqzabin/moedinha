@@ -19,10 +19,10 @@ func main() {
 	a, _ := moedinha.NewFromString("999999999999999999999999999999999999.999999999999999999")
 	b, _ := moedinha.NewFromString("888888888888888888.888888888888888888")
 
-	fmt.Printf("a + b = %s", a.Add(b).String())
-	fmt.Printf("a - b = %s", a.Sub(b).String())
-	fmt.Printf("b - a = %s", b.Sub(a).String())
-	fmt.Printf("a * b = %s", a.Mul(b).String())
+	fmt.Println("a + b =", a.Add(b).String())
+	fmt.Println("a - b =", a.Sub(b).String())
+	fmt.Println("b - a =", b.Sub(a).String())
+	fmt.Println("a * b =", a.Mul(b).String())
 }
 ```
 
