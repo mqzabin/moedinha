@@ -157,17 +157,11 @@ func (t integer) sub(v integer) integer {
 func (t integer) mul(v integer) (integer, natural) {
 	natResult, natOverflow := t.n.mul(v.n)
 
-	if t.neg == v.neg {
-		return integer{
-			n:   natResult,
-			neg: false,
-		}, natOverflow
-	}
-
 	return integer{
 		n:   natResult,
-		neg: true,
+		neg: t.neg != v.neg,
 	}, natOverflow
+
 }
 
 func (t integer) isZero() bool {

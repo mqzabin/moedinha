@@ -1,10 +1,19 @@
 package moedinha
 
 import (
+	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/shopspring/decimal"
 )
+
+func TestMain(m *testing.M) {
+	decimal.DivisionPrecision = currencyDecimalDigits
+
+	os.Exit(m.Run())
+}
 
 type fuzzSeed struct {
 	n   [numberOfUints]uint64

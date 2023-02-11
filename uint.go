@@ -13,6 +13,62 @@ const (
 	halfMaxValuePerUint = 999999999
 )
 
+var pow10 = newPow10Map()
+
+func newPow10Map() map[int]uint64 {
+	powValue := uint64(1)
+
+	pow10Map := make(map[int]uint64, 2*naturalMaxLen)
+	pow10Map[0] = powValue
+
+	for e := 1; e <= naturalMaxLen; e++ {
+		powValue *= base
+
+		pow10Map[e] = powValue
+	}
+
+	return pow10Map
+}
+
+// TODO: Implement some sort of binary search here.
+func digitsOf(v uint64) int {
+	if v == 0 {
+		return 0
+	}
+
+	for i := maxDigitsPerUint; i >= 0; i-- {
+		if v/pow10[i] != 0 {
+			return i + 1
+		}
+	}
+
+	panic("finding digits of a uint64")
+}
+
+func rightShift(v uint64, shift int) (uint64, uint64) {
+	if shift > maxDigitsPerUint {
+		panic("invalid shift passed to right shift")
+	}
+
+	if shift < 0 {
+		return leftShift(v, -shift)
+	}
+
+	return v / pow10[shift], (v % pow10[shift]) * pow10[maxDigitsPerUint-shift]
+}
+
+func leftShift(v uint64, shift int) (uint64, uint64) {
+	if shift > maxDigitsPerUint {
+		panic("invalid shift passed to left shift")
+	}
+
+	if shift < 0 {
+		return rightShift(v, -shift)
+	}
+
+	return (v % pow10[maxDigitsPerUint-shift]) * pow10[shift], v / pow10[maxDigitsPerUint-shift]
+}
+
 // rebalance truncates the src to maxValuePerUint, returns it at newSrc and adds the reminder to newDest.
 func rebalance(src, dest uint64) (newSrc, newDest uint64) {
 	dest += src / (maxValuePerUint + 1)

@@ -61,63 +61,155 @@ func (n natural) add(v natural) natural {
 	return result
 }
 
-// padRight moves the components of the natural number to right.
-// This operation is equivalent to n^(-padding*maxDigitsPerUint).
-// The second return is the operation overflow to the right, called "loss".
-func (n natural) padRight(padding int) (natural, natural) {
-	var padded, loss natural
-
-	if padding == 0 {
-		return n, natural{}
-	}
-
-	if padding < 0 {
-		return n.padLeft(-padding)
-	}
-
-	if padding >= 2*numberOfUints {
-		panic("invalid padding value passed to padRight")
-	}
-
+func (n natural) digits() int {
 	for i := 0; i < numberOfUints; i++ {
-		if i+padding < numberOfUints {
-			padded[i+padding] = n[i]
-			continue
+		if d := digitsOf(n[i]); d > 0 {
+			return naturalMaxLen - maxDigitsPerUint*i - (maxDigitsPerUint - d)
 		}
-		loss[i+padding-numberOfUints] = n[i]
 	}
 
-	return padded, loss
+	return 0
 }
 
-// padLeft moves the components of the natural number to left.
-// This operation is equivalent to n^(padding*maxDigitsPerUint).
-// The second return is the operation overflow.
-func (n natural) padLeft(padding int) (natural, natural) {
-	var padded, overflow natural
+// rightShiftDigit moves the digits to the right.
+// This operation is equivalent to n*base^(-shift).
+// The second return is the operation overflow to the right, called "loss".
+func (n natural) rightShiftDigit(shift int) (natural, natural) {
+	if n.isZero() {
+		return natural{}, natural{}
+	}
 
-	if padding == 0 {
+	if shift < 0 {
+		return n.leftShiftDigit(-shift)
+	}
+
+	if shift > naturalMaxLen {
+		panic("invalid shift value passed to right shift digit function")
+	}
+
+	shifted, loss := n.rightShiftUint(shift / maxDigitsPerUint)
+	shift = shift % maxDigitsPerUint
+
+	if shift == 0 {
+		return shifted, loss
+	}
+
+	var prevLoss, currLoss uint64
+
+	for i := 0; i < numberOfUints; i++ {
+		shifted[i], currLoss = rightShift(shifted[i], shift)
+		shifted[i] += prevLoss
+		prevLoss = currLoss
+	}
+
+	loss, _ = loss.rightShiftDigit(shift)
+	loss[0] += prevLoss
+
+	return shifted, loss
+}
+
+// leftShiftUint moves the uint64 components of the natural number to left.
+// This operation is equivalent to n*base^shift.
+// The second return is the operation overflow.
+func (n natural) leftShiftDigit(shift int) (natural, natural) {
+	if n.isZero() {
+		return natural{}, natural{}
+	}
+
+	if shift < 0 {
+		return n.rightShiftDigit(-shift)
+	}
+
+	if shift > naturalMaxLen {
+		panic("invalid shift value passed to left shift digit function")
+	}
+
+	shifted, overflow := n.leftShiftUint(shift / maxDigitsPerUint)
+	shift = shift % maxDigitsPerUint
+
+	if shift == 0 {
+		return shifted, overflow
+	}
+
+	var prevOverflow, currOverflow uint64
+
+	for i := numberOfUints - 1; i >= 0; i-- {
+		shifted[i], currOverflow = leftShift(shifted[i], shift)
+		shifted[i] += prevOverflow
+		prevOverflow = currOverflow
+	}
+
+	overflow, _ = overflow.leftShiftDigit(shift)
+	overflow[numberOfUints-1] += prevOverflow
+
+	return shifted, overflow
+}
+
+// rightShiftUint moves the uint64 components of the natural number to right.
+// This operation is equivalent to n^(-shift*maxDigitsPerUint).
+// The second return is the operation overflow to the right, called "loss".
+func (n natural) rightShiftUint(shift int) (natural, natural) {
+	if n.isZero() {
+		return natural{}, natural{}
+	}
+
+	if shift == 0 {
 		return n, natural{}
 	}
 
-	if padding < 0 {
-		return n.padRight(-padding)
+	if shift < 0 {
+		return n.leftShiftUint(-shift)
 	}
 
-	if padding >= 2*numberOfUints {
-		panic("invalid padding value passed to padLeft")
+	if shift >= 2*numberOfUints {
+		panic("invalid shift value passed to right shift uint function")
 	}
+
+	var shifted, loss natural
 
 	for i := 0; i < numberOfUints; i++ {
-		if i-padding < 0 {
-			overflow[numberOfUints+i-padding] = n[i]
+		if i+shift < numberOfUints {
+			shifted[i+shift] = n[i]
+			continue
+		}
+		loss[i+shift-numberOfUints] = n[i]
+	}
+
+	return shifted, loss
+}
+
+// leftShiftUint moves the components of the natural number to left.
+// This operation is equivalent to n^(shift*maxDigitsPerUint).
+// The second return is the operation overflow.
+func (n natural) leftShiftUint(shift int) (natural, natural) {
+	if n.isZero() {
+		return natural{}, natural{}
+	}
+
+	if shift == 0 {
+		return n, natural{}
+	}
+
+	if shift < 0 {
+		return n.rightShiftUint(-shift)
+	}
+
+	if shift >= 2*numberOfUints {
+		panic("invalid shift value passed to left shift uint function")
+	}
+
+	var shifted, overflow natural
+
+	for i := 0; i < numberOfUints; i++ {
+		if i-shift < 0 {
+			overflow[numberOfUints+i-shift] = n[i]
 			continue
 		}
 
-		padded[i-padding] = n[i]
+		shifted[i-shift] = n[i]
 	}
 
-	return padded, overflow
+	return shifted, overflow
 }
 
 // sub calculates the subtraction: n - v.
@@ -155,7 +247,7 @@ func (n natural) mul(v natural) (natural, natural) {
 	for i := 0; i < numberOfUints; i++ {
 		mr, mo := n.mulByUint64(v[i])
 
-		padded, paddingOverflow := mr.padLeft(numberOfUints - i - 1)
+		padded, paddingOverflow := mr.leftShiftUint(numberOfUints - i - 1)
 
 		overflow[i] += mo
 		overflow = overflow.add(paddingOverflow)

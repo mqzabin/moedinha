@@ -171,10 +171,10 @@ func (c Currency) Mul(v Currency) Currency {
 	// Since integers and naturals represents numbers with currencyDecimalDigits decimal
 	// digits, the result represents a number with 2*currencyDecimalDigits decimal digits.
 	// There's a need to truncate the first currencyDecimalDigits from the natural number.
-	intResult.n, _ = intResult.n.padRight(uintsReservedToDecimal)
+	intResult.n, _ = intResult.n.rightShiftUint(uintsReservedToDecimal)
 
 	// Getting the overflow part that should be summed to result.
-	natOverflow, addToResult := natOverflow.padRight(uintsReservedToDecimal)
+	natOverflow, addToResult := natOverflow.rightShiftUint(uintsReservedToDecimal)
 
 	intResult.n = intResult.n.add(addToResult)
 
@@ -185,4 +185,48 @@ func (c Currency) Mul(v Currency) Currency {
 	return Currency{
 		t: intResult,
 	}
+}
+
+func (c Currency) Div(v Currency) Currency {
+	if v.IsZero() {
+		panic("dividing by zero")
+	}
+
+	nDigits := v.t.n.digits()
+
+	neededShift := nDigits - currencyDecimalDigits
+
+	cShift, _ := c.t.n.rightShiftDigit(neededShift)
+	vShift, _ := v.t.n.rightShiftDigit(neededShift)
+
+	for vShift.lessThan(currencyOneHalf.t.n) {
+		vShift, _ = vShift.mulByUint64(2)
+		cShift, _ = cShift.mulByUint64(2)
+	}
+
+	shiftedNumerator := Currency{t: integer{
+		n:   cShift,
+		neg: false,
+	}}
+
+	shiftedDenominator := Currency{t: integer{
+		n:   vShift,
+		neg: false,
+	}}
+
+	reciprocal := currencyOne
+
+	for {
+		mul := shiftedDenominator.Mul(reciprocal)
+		if mul.Equal(currencyOne) {
+			break
+		}
+
+		reciprocal = reciprocal.Mul(currencyTwo.Sub(mul))
+	}
+
+	result := shiftedNumerator.Mul(reciprocal)
+	result.t.neg = c.t.neg != v.t.neg
+
+	return result
 }

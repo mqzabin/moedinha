@@ -41,7 +41,7 @@ func FuzzBinaryOperations(f *testing.F) {
 		})
 
 		t.Run("Mul", func(t *testing.T) {
-			// Multiplication result sum the number of digits of "a" and "b" in "a*b".
+			// Multiplication result's digits is the sum of the number of digits of "a" and "b" in "a*b".
 			// So, we should ensure that digits(a) + digits(b) don't overflow the
 			// naturalMaxLen constant.
 			// To ensure this, first we generate the "a" with near max digits (naturalMaxLen-1),
@@ -80,6 +80,35 @@ func FuzzBinaryOperations(f *testing.F) {
 
 			require.Equal(t, sMulResult.String(), mulResult.String())
 		})
+
+		//t.Run("Div", func(t *testing.T) {
+		//
+		//	aStr := seedA.string(naturalMaxLen - currencyDecimalDigits)
+		//	bStr := seedB.string(naturalMaxLen)
+		//
+		//	// Start the test.
+		//
+		//	a, err := NewFromString(aStr)
+		//	require.NoError(t, err)
+		//
+		//	b, err := NewFromString(bStr)
+		//	require.NoError(t, err)
+		//
+		//	if b.IsZero() {
+		//		t.Skip()
+		//	}
+		//
+		//	sa, err := decimal.NewFromString(aStr)
+		//	require.NoError(t, err)
+		//
+		//	sb, err := decimal.NewFromString(bStr)
+		//	require.NoError(t, err)
+		//
+		//	divResult := a.Div(b)
+		//	sDivResult := sa.Div(sb)
+		//
+		//	require.Equal(t, sDivResult.String(), divResult.String())
+		//})
 
 		t.Run("Comparisons", func(t *testing.T) {
 			// no overflow can occur.
@@ -284,4 +313,67 @@ func BenchmarkMul(b *testing.B) {
 
 	b.Log(mCurrency.String())
 	b.Log(sCurrency.String())
+}
+
+func BenchmarkDiv(b *testing.B) {
+	aStr := "2345678901234580000000000000000000000000052"
+	bStr := "8901234567890124190123456789012345612345678.9012345678123"
+
+	var (
+		mCurrency Currency
+		sCurrency decimal.Decimal
+	)
+
+	b.Run("moedinha", func(b *testing.B) {
+		x, _ := NewFromString(aStr)
+
+		y, _ := NewFromString(bStr)
+
+		for i := 0; i < b.N; i++ {
+			mCurrency = x.Div(y)
+		}
+	})
+
+	b.Run("shopspring", func(b *testing.B) {
+		x, _ := decimal.NewFromString(aStr)
+
+		y, _ := decimal.NewFromString(bStr)
+
+		for i := 0; i < b.N; i++ {
+			sCurrency = x.Div(y)
+		}
+	})
+
+	b.Log(mCurrency.String())
+	b.Log(sCurrency.String())
+}
+
+// TODO: Remove me
+func TestDiv(t *testing.T) {
+	//aStr := "2345678901234580000000000000000000000000052"
+	//bStr := "8901234567890124190123456789012345612345678.9012345678123"
+
+	aStr := "99999999999999999999999999999999999.999999999999999999"
+	bStr := "888888888888888888.888888888888888888"
+
+	a, err := NewFromString(aStr)
+	require.NoError(t, err)
+
+	b, err := NewFromString(bStr)
+	require.NoError(t, err)
+
+	if b.IsZero() {
+		t.Skip()
+	}
+
+	sa, err := decimal.NewFromString(aStr)
+	require.NoError(t, err)
+
+	sb, err := decimal.NewFromString(bStr)
+	require.NoError(t, err)
+
+	divResult := a.Div(b)
+	sDivResult := sa.Div(sb)
+
+	require.Equal(t, sDivResult.String(), divResult.String())
 }

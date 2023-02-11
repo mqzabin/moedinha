@@ -1,10 +1,10 @@
 .PHONY: fuzzy/binary
 fuzzy/binary:
-	@go test -fuzz=FuzzBinaryOperations -parallel=4
+	@go test -run=none -fuzz=FuzzBinaryOperations -parallel=4
 
 .PHONY: fuzzy/unary
 fuzzy/unary:
-	@go test -fuzz=FuzzUnaryOperations -parallel=4
+	@go test -run=none -fuzz=FuzzUnaryOperations -parallel=4
 
 .PHONY: fuzzy/clean
 fuzzy/clean:
@@ -12,4 +12,4 @@ fuzzy/clean:
 
 .PHONY: bench
 bench:
-	@go test -run none -bench=. -benchmem ./...
+	@go test -run=none -bench=. -benchmem ./...
