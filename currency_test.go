@@ -81,34 +81,37 @@ func FuzzBinaryOperations(f *testing.F) {
 			require.Equal(t, sMulResult.String(), mulResult.String())
 		})
 
-		//t.Run("Div", func(t *testing.T) {
-		//
-		//	aStr := seedA.string(naturalMaxLen - currencyDecimalDigits)
-		//	bStr := seedB.string(naturalMaxLen)
-		//
-		//	// Start the test.
-		//
-		//	a, err := NewFromString(aStr)
-		//	require.NoError(t, err)
-		//
-		//	b, err := NewFromString(bStr)
-		//	require.NoError(t, err)
-		//
-		//	if b.IsZero() {
-		//		t.Skip()
-		//	}
-		//
-		//	sa, err := decimal.NewFromString(aStr)
-		//	require.NoError(t, err)
-		//
-		//	sb, err := decimal.NewFromString(bStr)
-		//	require.NoError(t, err)
-		//
-		//	divResult := a.Div(b)
-		//	sDivResult := sa.Div(sb)
-		//
-		//	require.Equal(t, sDivResult.String(), divResult.String())
-		//})
+		t.Run("Div", func(t *testing.T) {
+
+			aStr := seedA.string(naturalMaxLen - currencyDecimalDigits)
+			bStr := seedB.string(naturalMaxLen)
+
+			// Start the test.
+
+			a, err := NewFromString(aStr)
+			require.NoError(t, err)
+
+			b, err := NewFromString(bStr)
+			require.NoError(t, err)
+
+			if b.IsZero() {
+				t.Skip()
+			}
+
+			sa, err := decimal.NewFromString(aStr)
+			require.NoError(t, err)
+
+			sb, err := decimal.NewFromString(bStr)
+			require.NoError(t, err)
+
+			divResult := a.Div(b)
+			sDivResult := sa.Div(sb)
+
+			require.Equalf(t,
+				sDivResult.String(), divResult.String(),
+				"a = %s | b = %s", a.String(), b.String(),
+			)
+		})
 
 		t.Run("Comparisons", func(t *testing.T) {
 			// no overflow can occur.
@@ -316,8 +319,8 @@ func BenchmarkMul(b *testing.B) {
 }
 
 func BenchmarkDiv(b *testing.B) {
-	aStr := "2345678901234580000000000000000000000000052"
-	bStr := "8901234567890124190123456789012345612345678.9012345678123"
+	aStr := "1"
+	bStr := "3"
 
 	var (
 		mCurrency Currency
@@ -350,11 +353,8 @@ func BenchmarkDiv(b *testing.B) {
 
 // TODO: Remove me
 func TestDiv(t *testing.T) {
-	//aStr := "2345678901234580000000000000000000000000052"
-	//bStr := "8901234567890124190123456789012345612345678.9012345678123"
-
-	aStr := "99999999999999999999999999999999999.999999999999999999"
-	bStr := "888888888888888888.888888888888888888"
+	aStr := "999999999999999999999999999999999999.999999999999999999"
+	bStr := "99999999999999999999999999999999999999999999999999999.999999999999999999"
 
 	a, err := NewFromString(aStr)
 	require.NoError(t, err)

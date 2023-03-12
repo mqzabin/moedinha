@@ -188,6 +188,10 @@ func (c Currency) Mul(v Currency) Currency {
 }
 
 func (c Currency) Div(v Currency) Currency {
+	return c.divWithInitialEstimate(initialEstimateChebyshev, v)
+}
+
+func (c Currency) divWithInitialEstimate(initialEstimate func(Currency) Currency, v Currency) Currency {
 	if v.IsZero() {
 		panic("dividing by zero")
 	}
@@ -214,11 +218,16 @@ func (c Currency) Div(v Currency) Currency {
 		neg: false,
 	}}
 
-	reciprocal := currencyOne
+	reciprocal := initialEstimate(shiftedDenominator)
 
 	for {
 		mul := shiftedDenominator.Mul(reciprocal)
 		if mul.Equal(currencyOne) {
+			fmt.Println(reciprocal.String())
+			fmt.Println("*")
+			fmt.Println(shiftedNumerator.String())
+			fmt.Println("=")
+			fmt.Println(reciprocal.Mul(shiftedNumerator))
 			break
 		}
 
@@ -229,4 +238,13 @@ func (c Currency) Div(v Currency) Currency {
 	result.t.neg = c.t.neg != v.t.neg
 
 	return result
+}
+
+func initialEstimateOne(_ Currency) Currency {
+	return currencyOne
+}
+
+func initialEstimateChebyshev(v Currency) Currency {
+	// (48/17) - Denominator*(32/17)
+	return currency48Over17.Sub(v.Mul(currency32Over17))
 }
