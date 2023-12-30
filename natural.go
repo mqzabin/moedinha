@@ -71,6 +71,16 @@ func (n natural) digits() int {
 	return 0
 }
 
+func (n natural) uintsInUse() int {
+	for i := 0; i < numberOfUints; i++ {
+		if n[i] > 0 {
+			return numberOfUints - i
+		}
+	}
+
+	return 0
+}
+
 // rightShiftDigit moves the digits to the right.
 // This operation is equivalent to n*base^(-shift).
 // The second return is the operation overflow to the right, called "loss".
@@ -273,6 +283,95 @@ func (n natural) mulByUint64(x uint64) (natural, uint64) {
 	}
 
 	return result, overflow[0]
+}
+
+func (n natural) div(v natural) (natural, natural) {
+	if v.isZero() {
+		panic("division by zero")
+	}
+
+	if n.isZero() {
+		return natural{}, natural{}
+	}
+
+	if n.lessThan(v) {
+		return natural{}, natural{}
+	}
+
+	if n.equal(v) {
+		return naturalOne, natural{}
+	}
+
+	var result, remainder natural
+
+	// Neither of *UintsUsed are 0.
+	nUintsUsed := n.uintsInUse()
+	vUintsUsed := v.uintsInUse()
+
+	// It's a simple division.
+	if nUintsUsed == 1 && vUintsUsed == 1 {
+		remainder[numberOfUints-1] = n[numberOfUints-1] % v[numberOfUints-1]
+		result[numberOfUints-1] = n[numberOfUints-1] / v[numberOfUints-1]
+
+		return result, remainder
+	}
+
+	nMostSignificantDigit := n[numberOfUints-nUintsUsed]
+	vMostSignificantDigit := v[numberOfUints-vUintsUsed]
+
+	toShift := nUintsUsed - vUintsUsed
+
+	// If 'v' most significant digit is greater than 'n' most significant digit,
+	// shifting 'v' by 'toShift' will make 'v' greater than 'n´.
+	if vMostSignificantDigit > nMostSignificantDigit {
+		// 'toShift' will never be -1, since this implies that
+		// 'n' and 'v' uses the same amount of digits,
+		// and entering this if statement would imply
+		// that 'v' would be greater than 'n', which is false.
+		toShift--
+	}
+
+	// Certainly fits into 'n'.
+	result[numberOfUints-toShift-1] = 1
+
+	resultingMul, _ := result.mul(v)
+
+	return result, result.sub(resultingMul)
+}
+
+func (n natural) divByUint(v uint64) (natural, uint64) {
+
+	var (
+		remainderSum uint64
+		result       natural
+	)
+
+	// Partially dividing each digit of 'n', since
+	// (B^n + ... + B^0)/v = (B^n/v) + ... + (B^0/v)
+	for i := 0; i < numberOfUints; i++ {
+		var partialN, partialResult natural
+
+		// 0 0 0 ... n[i] ... 0 0 0
+		partialN[i] = n[i]
+
+		var carriedRemainder uint64
+		// Dividing each digit of partialN.
+		for j := i; j < numberOfUints; j++ {
+			partialResult[j], carriedRemainder = highLowDiv(carriedRemainder, partialN[j], v)
+		}
+
+		result = result.add(partialResult)
+		remainderSum += carriedRemainder
+	}
+
+	var remainderDivision natural
+	// Creating a natural with the least significant digit equal to 'remainderSum / v'.
+	// Note that 'remainderSum / v' will never overflow maxValuePerUint.
+	remainderDivision[numberOfUints-1] = remainderSum / v
+
+	result = result.add(remainderDivision)
+
+	return result, remainderSum % v
 }
 
 func (n natural) isZero() bool {

@@ -1,12 +1,18 @@
 package moedinha
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	// base is the base value used by the library.
 	base = 10
 	// maxValuePerUint is the greater 999-ish number under 63 bits.
+	// Its binary representation is:
+	// 101100110111110110011011111100000110100111100111111111111111
 	maxValuePerUint = 999999999999999999
+	// maxValuePerUintBitsUsed it's the number of bits used to represent maxValuePerUint.
+	maxValuePerUintBitsUsed = 60
 	// maxDigitsPerUint is the amount of maxValuePerUint digits.
 	maxDigitsPerUint = 18
 	// halfMaxValuePerUint is half of maxValuePerUint digits.
@@ -114,6 +120,31 @@ func multiplyUint(a, b uint64) (uint64, uint64) {
 	return right, left
 }
 
+func convertToHighLowBits(highDigits, lowDigits uint64) (uint64, uint64) {
+	const (
+		bitsToDrop     = 64 - maxValuePerUintBitsUsed
+		bitsToDropMask = 1<<bitsToDrop - 1
+	)
+
+	bitsLow := lowDigits & ((highDigits & bitsToDropMask) << maxValuePerUintBitsUsed)
+	bitsHigh := highDigits >> bitsToDrop
+
+	return bitsHigh, bitsLow
+}
+
+func convertFromHighLowBits(highBits, lowBits uint64) (uint64, uint64) {
+	const (
+		bitsToRaise       = 64 - maxValuePerUintBitsUsed
+		bitsToRaiseMask   = ((1 << bitsToRaise) - 1) << maxValuePerUintBitsUsed
+		bitsToKeepLowMask = (1 << maxValuePerUintBitsUsed) - 1
+	)
+
+	lowDigits := lowBits & bitsToKeepLowMask
+	highDigits := (highBits << bitsToRaise) & (lowBits & bitsToRaiseMask)
+
+	return highDigits, lowDigits
+}
+
 // atoi is a fork from strconv.Atoi with proper signature.
 func atoi(s [maxDigitsPerUint]byte) (uint64, error) {
 	var n uint64
@@ -141,4 +172,64 @@ func itoa(v uint64) [maxDigitsPerUint]byte {
 	}
 
 	return res
+}
+
+// Div64 returns the quotient and remainder of (hi, lo) divided by y:
+// quo = (hi, lo)/y, rem = (hi, lo)%y with the dividend bits' upper
+// half in parameter hi and the lower half in parameter lo.
+// Div64 panics for y == 0 (division by zero) or y <= hi (quotient overflow).
+func highLowDiv(hi, lo, d uint64) (quo, rem uint64) {
+	if d == 0 {
+		panic("oi")
+	}
+	if d <= hi {
+		panic("oi")
+	}
+
+	// If high part is zero, we can directly return the results.
+	if hi == 0 {
+		return lo / d, lo % d
+	}
+
+	s := maxDigitsPerUint - digitsOf(d)
+	d, _ = leftShift(d, s)
+
+	const half = halfMaxValuePerUint + 1
+
+	leftDDigits, rightDDigits := splitInHalf(d)
+
+	loSLeftDigits, _ := rightShift(lo, maxDigitsPerUint-s)
+	hiComplementaryRight, _ := leftShift(hi, s)
+
+	un32 := loSLeftDigits + hiComplementaryRight
+	un10, _ := leftShift(lo, s)
+
+	un1, un0 := splitInHalf(un10)
+
+	q1 := un32 / leftDDigits
+	rhat := un32 - q1*leftDDigits
+
+	for q1 >= half || q1*rightDDigits > half*rhat+un1 {
+		q1--
+		rhat += leftDDigits
+		if rhat >= half {
+			break
+		}
+	}
+
+	un21 := un32*half + un1 - q1*d
+	q0 := un21 / leftDDigits
+	rhat = un21 - q0*leftDDigits
+
+	for q0 >= half || q0*rightDDigits > half*rhat+un0 {
+		q0--
+		rhat += leftDDigits
+		if rhat >= half {
+			break
+		}
+	}
+
+	resultingRem, _ := rightShift(un21*half+un0-q0*d, s)
+
+	return q1*half + q0, resultingRem
 }

@@ -187,9 +187,27 @@ func (c Currency) Mul(v Currency) Currency {
 	}
 }
 
-func (c Currency) Div(v Currency) Currency {
-	return c.divWithInitialEstimate(initialEstimateChebyshev, v)
-}
+//func (c Currency) Div(v Currency) Currency {
+//	if c.Equal(v) {
+//		return currencyOne
+//	}
+//
+//	if c.GreaterThan(v) {
+//		return c.divWithInitialEstimate(initialEstimateChebyshev, v)
+//	}
+//
+//	// c is less than v
+//
+//	if c.LessThan(v) && !c.Equal(currencyOne) {
+//		return currencyOne.divWithInitialEstimate(initialEstimate, v.divWithInitialEstimate(initialEstimate, c))
+//	}
+//
+//	if c.Equal(currencyOne) {
+//
+//	}
+//
+//	return c.divWithInitialEstimate(initialEstimateChebyshev, v)
+//}
 
 func (c Currency) divWithInitialEstimate(initialEstimate func(Currency) Currency, v Currency) Currency {
 	if v.IsZero() {
@@ -223,11 +241,11 @@ func (c Currency) divWithInitialEstimate(initialEstimate func(Currency) Currency
 	for {
 		mul := shiftedDenominator.Mul(reciprocal)
 		if mul.Equal(currencyOne) {
-			fmt.Println(reciprocal.String())
-			fmt.Println("*")
-			fmt.Println(shiftedNumerator.String())
-			fmt.Println("=")
-			fmt.Println(reciprocal.Mul(shiftedNumerator))
+			//fmt.Println(reciprocal.String())
+			//fmt.Println("*")
+			//fmt.Println(shiftedNumerator.String())
+			//fmt.Println("=")
+			//fmt.Println(reciprocal.Mul(shiftedNumerator))
 			break
 		}
 
