@@ -302,45 +302,76 @@ func (n natural) div(v natural) (natural, natural) {
 		return naturalOne, natural{}
 	}
 
-	var result, remainder natural
+	vUintsInUse := v.uintsInUse()
+	nUintsInUse := n.uintsInUse()
 
-	// Neither of *UintsUsed are 0.
-	nUintsUsed := n.uintsInUse()
-	vUintsUsed := v.uintsInUse()
+	// Since n > v, we could assume that nUintsInUse >= vUintsInUse.
 
-	// It's a simple division.
-	if nUintsUsed == 1 && vUintsUsed == 1 {
+	// Both have 1 uint64, so it's a simple uint64 division.
+	if vUintsInUse == 1 && nUintsInUse == 1 {
+		var quotient, remainder natural
+		quotient[numberOfUints-1] = n[numberOfUints-1] / v[numberOfUints-1]
 		remainder[numberOfUints-1] = n[numberOfUints-1] % v[numberOfUints-1]
-		result[numberOfUints-1] = n[numberOfUints-1] / v[numberOfUints-1]
 
-		return result, remainder
+		return quotient, remainder
 	}
 
-	nMostSignificantDigit := n[numberOfUints-nUintsUsed]
-	vMostSignificantDigit := v[numberOfUints-vUintsUsed]
+	// Denominator has 1 uint64, so divByUint could be used.
+	if vUintsInUse == 1 {
+		quotient, remUint := n.divByUint(v[numberOfUints-1])
 
-	toShift := nUintsUsed - vUintsUsed
+		var remainder natural
+		remainder[numberOfUints-1] = remUint
 
-	// If 'v' most significant digit is greater than 'n' most significant digit,
-	// shifting 'v' by 'toShift' will make 'v' greater than 'n´.
-	if vMostSignificantDigit > nMostSignificantDigit {
-		// 'toShift' will never be -1, since this implies that
-		// 'n' and 'v' uses the same amount of digits,
-		// and entering this if statement would imply
-		// that 'v' would be greater than 'n', which is false.
-		toShift--
+		return quotient, remainder
 	}
 
-	// Certainly fits into 'n'.
-	result[numberOfUints-toShift-1] = 1
+	var quotient natural
 
-	resultingMul, _ := result.mul(v)
+	dividend := n
+	for i := 0; i < nUintsInUse; i++ {
+		var digit uint64
+		digit, dividend = longDivisionIteration(dividend, v)
 
-	return result, result.sub(resultingMul)
+		// Inserting new computed digit to the quotient.
+		quotient, _ = quotient.leftShiftUint(1)
+		quotient[numberOfUints-1] = digit
+	}
+
+	// The carried dividend is the final remainder.
+	return quotient, dividend
+}
+
+// longDivisionIteration searches for the minimum digits of 'n' that compose a number greater than 'd',
+// then divides the number found by 'd', returning the quotient, and the remainder of 'n'.
+// Due to this operation, the quotient will never be greater than 1 uint64.
+// The remainder is computed by `n - quotient*d*B^(shiftedDigits)`.
+//
+// This function is mainly used by natural.div method in the long division algorithm.
+func longDivisionIteration(n, d natural) (uint64, natural) {
+	nUints := n.uintsInUse()
+	dUints := d.uintsInUse()
+
+	var hiN, loN uint64
+	loN = n[numberOfUints-nUints]
+
+	var hiD uint64
+	hiD = d[numberOfUints-dUints]
+
+	if hiD > loN {
+		hiN = loN
+		loN = n[numberOfUints-nUints-1]
+	}
+
+	quoDigit, _ := highLowDiv(hiN, loN, hiD)
+
+	quoMul, _ := d.mulByUint64(quoDigit)
+	quoMul, _ = quoMul.leftShiftUint(nUints - dUints)
+
+	return quoDigit, n.sub(quoMul)
 }
 
 func (n natural) divByUint(v uint64) (natural, uint64) {
-
 	var (
 		remainderSum uint64
 		result       natural
@@ -351,6 +382,7 @@ func (n natural) divByUint(v uint64) (natural, uint64) {
 	for i := 0; i < numberOfUints; i++ {
 		var partialN, partialResult natural
 
+		// Use only the i-th digit of 'n'.
 		// 0 0 0 ... n[i] ... 0 0 0
 		partialN[i] = n[i]
 
@@ -364,9 +396,9 @@ func (n natural) divByUint(v uint64) (natural, uint64) {
 		remainderSum += carriedRemainder
 	}
 
-	var remainderDivision natural
 	// Creating a natural with the least significant digit equal to 'remainderSum / v'.
 	// Note that 'remainderSum / v' will never overflow maxValuePerUint.
+	var remainderDivision natural
 	remainderDivision[numberOfUints-1] = remainderSum / v
 
 	result = result.add(remainderDivision)
@@ -418,7 +450,6 @@ func (n natural) lessOnEqual(v natural, onEqual bool) bool {
 		if n[i] < v[i] {
 			return true
 		}
-
 		if n[i] > v[i] {
 			return false
 		}

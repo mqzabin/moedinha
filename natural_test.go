@@ -24,6 +24,10 @@ func Test_natural_divByUint(t *testing.T) {
 	}
 
 	stringNatural := func(n natural) string {
+		if n.isZero() {
+			return "0"
+		}
+
 		gotString1 := n.string()
 		return strings.TrimLeft(string(gotString1[:]), "0")
 	}
@@ -43,6 +47,21 @@ func Test_natural_divByUint(t *testing.T) {
 				name: "",
 				n:    "000000000000000000000000000000000000099999999999999999999999999999999999",
 				d:    999999999999999999,
+			},
+			{
+				name: "",
+				n:    "000000000000000000000000000000000000099999999999999999999999999999999999",
+				d:    3,
+			},
+			{
+				name: "",
+				n:    "100000000000000000000000000000000000000000000000000000000000000000000000",
+				d:    6,
+			},
+			{
+				name: "",
+				n:    "100000000000000000",
+				d:    6,
 			},
 		}
 		for _, tt := range tests {
@@ -90,7 +109,18 @@ func Test_natural_divByUint(t *testing.T) {
 				n:    "999999999999999999999999999999999999",
 				d:    "999999999999999999",
 			},
+			{
+				name: "",
+				n:    "999999999999999999999999999999999999999999999999999999999999999999999999",
+				d:    "999999999999999999",
+			},
+			{
+				name: "",
+				n:    "1234234213423545367456123123",
+				d:    "6",
+			},
 		}
+
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				var wantDiv, wantRem string
@@ -115,6 +145,8 @@ func Test_natural_divByUint(t *testing.T) {
 				fmt.Println("n / d = ", stringNatural(n), "/", stringNatural(d))
 
 				got, got1 := n.div(d)
+
+				fmt.Println(stringNatural(got), "rem", stringNatural(got1))
 
 				assert.Equal(t, wantDiv, stringNatural(got))
 				assert.Equal(t, wantRem, stringNatural(got1))

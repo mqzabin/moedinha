@@ -120,31 +120,6 @@ func multiplyUint(a, b uint64) (uint64, uint64) {
 	return right, left
 }
 
-func convertToHighLowBits(highDigits, lowDigits uint64) (uint64, uint64) {
-	const (
-		bitsToDrop     = 64 - maxValuePerUintBitsUsed
-		bitsToDropMask = 1<<bitsToDrop - 1
-	)
-
-	bitsLow := lowDigits & ((highDigits & bitsToDropMask) << maxValuePerUintBitsUsed)
-	bitsHigh := highDigits >> bitsToDrop
-
-	return bitsHigh, bitsLow
-}
-
-func convertFromHighLowBits(highBits, lowBits uint64) (uint64, uint64) {
-	const (
-		bitsToRaise       = 64 - maxValuePerUintBitsUsed
-		bitsToRaiseMask   = ((1 << bitsToRaise) - 1) << maxValuePerUintBitsUsed
-		bitsToKeepLowMask = (1 << maxValuePerUintBitsUsed) - 1
-	)
-
-	lowDigits := lowBits & bitsToKeepLowMask
-	highDigits := (highBits << bitsToRaise) & (lowBits & bitsToRaiseMask)
-
-	return highDigits, lowDigits
-}
-
 // atoi is a fork from strconv.Atoi with proper signature.
 func atoi(s [maxDigitsPerUint]byte) (uint64, error) {
 	var n uint64
@@ -174,16 +149,14 @@ func itoa(v uint64) [maxDigitsPerUint]byte {
 	return res
 }
 
-// Div64 returns the quotient and remainder of (hi, lo) divided by y:
-// quo = (hi, lo)/y, rem = (hi, lo)%y with the dividend bits' upper
-// half in parameter hi and the lower half in parameter lo.
-// Div64 panics for y == 0 (division by zero) or y <= hi (quotient overflow).
+// highLowDiv is a bits.Div64 rewrite using uint conventions from this package, i.e.
+// each uint64 (hi/lo) stores the number's upper and lower 18 digits.
 func highLowDiv(hi, lo, d uint64) (quo, rem uint64) {
 	if d == 0 {
-		panic("oi")
+		panic("division by zero")
 	}
 	if d <= hi {
-		panic("oi")
+		panic("unsupported denominator")
 	}
 
 	// If high part is zero, we can directly return the results.
@@ -191,45 +164,49 @@ func highLowDiv(hi, lo, d uint64) (quo, rem uint64) {
 		return lo / d, lo % d
 	}
 
+	// Left shift d up to maxDigitsPerUint digits.
 	s := maxDigitsPerUint - digitsOf(d)
 	d, _ = leftShift(d, s)
 
 	const half = halfMaxValuePerUint + 1
 
-	leftDDigits, rightDDigits := splitInHalf(d)
+	// Splitting d into its lower and upper digits.
+	hiD, loD := splitInHalf(d)
 
-	loSLeftDigits, _ := rightShift(lo, maxDigitsPerUint-s)
-	hiComplementaryRight, _ := leftShift(hi, s)
+	// Getting the 's' left digits of 'lo' and the remaining digits.
+	loRaisedDigits, remainingLo := rightShift(lo, maxDigitsPerUint-s)
+	// Shifting 'hi' by 's' digits to the left.
+	// The overflow is always zero, since digits of 'hi' is less or equal 's', given that 'd' > 'hi'.
+	hiShiftedLeft, _ := leftShift(hi, s)
+	// upperDigits is the upper digits of the entire number (hi, lo) shifted left by 's' digits.
+	upperDigits := hiShiftedLeft + loRaisedDigits
 
-	un32 := loSLeftDigits + hiComplementaryRight
-	un10, _ := leftShift(lo, s)
+	loShiftedHi, loShiftedLo := splitInHalf(remainingLo)
 
-	un1, un0 := splitInHalf(un10)
+	hiQuotient := upperDigits / hiD
+	hiRemainder := upperDigits - hiQuotient*hiD
 
-	q1 := un32 / leftDDigits
-	rhat := un32 - q1*leftDDigits
-
-	for q1 >= half || q1*rightDDigits > half*rhat+un1 {
-		q1--
-		rhat += leftDDigits
-		if rhat >= half {
+	for hiQuotient >= half || hiQuotient*loD > half*hiRemainder+loShiftedHi {
+		hiQuotient--
+		hiRemainder += hiD
+		if hiRemainder >= half {
 			break
 		}
 	}
 
-	un21 := un32*half + un1 - q1*d
-	q0 := un21 / leftDDigits
-	rhat = un21 - q0*leftDDigits
+	un21 := upperDigits*half + loShiftedHi - hiQuotient*d
+	q0 := un21 / hiD
+	hiRemainder = un21 - q0*hiD
 
-	for q0 >= half || q0*rightDDigits > half*rhat+un0 {
+	for q0 >= half || q0*loD > half*hiRemainder+loShiftedLo {
 		q0--
-		rhat += leftDDigits
-		if rhat >= half {
+		hiRemainder += hiD
+		if hiRemainder >= half {
 			break
 		}
 	}
 
-	resultingRem, _ := rightShift(un21*half+un0-q0*d, s)
+	resultingRem, _ := rightShift(un21*half+loShiftedLo-q0*d, s)
 
-	return q1*half + q0, resultingRem
+	return hiQuotient*half + q0, resultingRem
 }

@@ -164,6 +164,20 @@ func (t integer) mul(v integer) (integer, natural) {
 
 }
 
+func (t integer) divByInt(v int64) (integer, uint64) {
+	negV := v < 0
+	if negV {
+		v *= -1
+	}
+
+	q, r := t.n.divByUint(uint64(v))
+
+	return integer{
+		n:   q,
+		neg: negV != t.neg,
+	}, r
+}
+
 func (t integer) isZero() bool {
 	return t.n.isZero()
 }

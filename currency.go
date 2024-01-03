@@ -187,6 +187,14 @@ func (c Currency) Mul(v Currency) Currency {
 	}
 }
 
+func (c Currency) DivInt(v int64) Currency {
+	intRes, _ := c.t.divByInt(v)
+
+	return Currency{
+		t: intRes,
+	}
+}
+
 //func (c Currency) Div(v Currency) Currency {
 //	if c.Equal(v) {
 //		return currencyOne
