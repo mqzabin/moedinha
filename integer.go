@@ -13,7 +13,7 @@ const (
 )
 
 type integer struct {
-	n   natural
+	abs natural
 	neg bool
 }
 
@@ -33,7 +33,7 @@ func newIntegerFromString(str [integerMaxLen]byte) (integer, error) {
 	}
 
 	return integer{
-		n:   n,
+		abs: n,
 		neg: neg,
 	}, nil
 }
@@ -51,7 +51,7 @@ func (t integer) string() [integerMaxLen]byte {
 		intString[0] = integerNegativeSymbol
 	}
 
-	natString := t.n.string()
+	natString := t.abs.string()
 
 	copy(intString[1:], natString[:])
 
@@ -63,7 +63,7 @@ func (t integer) add(v integer) integer {
 	// "(+t)+(+v) = t+v" or "(-t)+(-v) = -(t+v)"
 	if t.neg == v.neg {
 		return integer{
-			n:   t.n.add(v.n),
+			abs: t.abs.add(v.abs),
 			neg: t.neg,
 		}
 	}
@@ -74,7 +74,7 @@ func (t integer) add(v integer) integer {
 	// v - t
 	if t.neg {
 		return v.sub(integer{
-			n:   t.n,
+			abs: t.abs,
 			neg: false,
 		})
 	}
@@ -83,7 +83,7 @@ func (t integer) add(v integer) integer {
 	// t - v
 
 	return t.sub(integer{
-		n:   v.n,
+		abs: v.abs,
 		neg: false,
 	})
 }
@@ -99,14 +99,14 @@ func (t integer) sub(v integer) integer {
 		// t - (-v) = t + v
 		if v.neg {
 			return integer{
-				n:   t.n.add(v.n),
+				abs: t.abs.add(v.abs),
 				neg: false,
 			}
 		}
 
 		// -c - v = - (c+v)
 		return integer{
-			n:   t.n.add(v.n),
+			abs: t.abs.add(v.abs),
 			neg: true,
 		}
 	}
@@ -117,17 +117,17 @@ func (t integer) sub(v integer) integer {
 	// -t - (-v) = v - t
 	if t.neg {
 		// negative result.
-		if t.n.greaterThan(v.n) {
+		if t.abs.greaterThan(v.abs) {
 			// v - t = -(t-v)
 			return integer{
-				n:   t.n.sub(v.n),
+				abs: t.abs.sub(v.abs),
 				neg: true,
 			}
 		}
 
 		// positive result
 		return integer{
-			n:   v.n.sub(t.n),
+			abs: v.abs.sub(t.abs),
 			neg: false,
 		}
 	}
@@ -136,17 +136,17 @@ func (t integer) sub(v integer) integer {
 	// c - v
 
 	// negative result
-	if v.n.greaterThan(t.n) {
+	if v.abs.greaterThan(t.abs) {
 		// t - v = -(v - t)
 		return integer{
-			n:   v.n.sub(t.n),
+			abs: v.abs.sub(t.abs),
 			neg: true,
 		}
 	}
 
 	// positive result
 	return integer{
-		n:   t.n.sub(v.n),
+		abs: t.abs.sub(v.abs),
 		neg: false,
 	}
 }
@@ -155,13 +155,21 @@ func (t integer) sub(v integer) integer {
 // The first return is the result, and the second return is the overflow
 // of the operation, if any, as a natural number.
 func (t integer) mul(v integer) (integer, natural) {
-	natResult, natOverflow := t.n.mul(v.n)
+	natResult, natOverflow := t.abs.mul(v.abs)
 
 	return integer{
-		n:   natResult,
+		abs: natResult,
 		neg: t.neg != v.neg,
 	}, natOverflow
+}
 
+func (t integer) div(v integer) (integer, natural) {
+	q, r := t.abs.div(v.abs)
+
+	return integer{
+		abs: q,
+		neg: v.neg != t.neg,
+	}, r
 }
 
 func (t integer) divByInt(v int64) (integer, uint64) {
@@ -170,25 +178,25 @@ func (t integer) divByInt(v int64) (integer, uint64) {
 		v *= -1
 	}
 
-	q, r := t.n.divByUint(uint64(v))
+	q, r := t.abs.divByUint(uint64(v))
 
 	return integer{
-		n:   q,
+		abs: q,
 		neg: negV != t.neg,
 	}, r
 }
 
 func (t integer) isZero() bool {
-	return t.n.isZero()
+	return t.abs.isZero()
 }
 
 func (t integer) equal(v integer) bool {
 	// -0 should be equal to +0.
-	if t.n.isZero() && v.n.isZero() {
+	if t.abs.isZero() && v.abs.isZero() {
 		return true
 	}
 
-	return t.neg == v.neg && t.n.equal(v.n)
+	return t.neg == v.neg && t.abs.equal(v.abs)
 }
 
 func (t integer) greaterThan(v integer) bool {
@@ -199,10 +207,10 @@ func (t integer) greaterThan(v integer) bool {
 	// equal signal
 	if neg := t.neg; neg == v.neg {
 		if neg {
-			return t.n.lessThan(v.n)
+			return t.abs.lessThan(v.abs)
 		}
 
-		return t.n.greaterThan(v.n)
+		return t.abs.greaterThan(v.abs)
 	}
 
 	if t.neg {
@@ -220,10 +228,10 @@ func (t integer) greaterThanOrEqual(v integer) bool {
 	// equal signal
 	if neg := t.neg; neg == v.neg {
 		if neg {
-			return t.n.lessThan(v.n)
+			return t.abs.lessThan(v.abs)
 		}
 
-		return t.n.greaterThan(v.n)
+		return t.abs.greaterThan(v.abs)
 	}
 
 	if t.neg {
@@ -241,10 +249,10 @@ func (t integer) lessThan(v integer) bool {
 	// equal signs
 	if neg := t.neg; neg == v.neg {
 		if neg {
-			return t.n.greaterThan(v.n)
+			return t.abs.greaterThan(v.abs)
 		}
 
-		return t.n.lessThan(v.n)
+		return t.abs.lessThan(v.abs)
 	}
 
 	if t.neg {
@@ -262,10 +270,10 @@ func (t integer) lessThanOrEqual(v integer) bool {
 	// equal signs
 	if neg := t.neg; neg == v.neg {
 		if neg {
-			return t.n.greaterThan(v.n)
+			return t.abs.greaterThan(v.abs)
 		}
 
-		return t.n.lessThan(v.n)
+		return t.abs.lessThan(v.abs)
 	}
 
 	if t.neg {
@@ -273,4 +281,22 @@ func (t integer) lessThanOrEqual(v integer) bool {
 	}
 
 	return false
+}
+
+func (t integer) leftShiftUint(toShift int) (integer, natural) {
+	shifted, overflow := t.abs.leftShiftUint(toShift)
+
+	return integer{
+		abs: shifted,
+		neg: t.neg,
+	}, overflow
+}
+
+func (t integer) rightShiftUint(toShift int) (integer, natural) {
+	shifted, overflow := t.abs.rightShiftUint(toShift)
+
+	return integer{
+		abs: shifted,
+		neg: t.neg,
+	}, overflow
 }

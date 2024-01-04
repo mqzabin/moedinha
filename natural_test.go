@@ -119,6 +119,16 @@ func Test_natural_divByUint(t *testing.T) {
 				n:    "1234234213423545367456123123",
 				d:    "6",
 			},
+			{
+				name: "",
+				n:    "10000000000000000000",
+				d:    "6000000000000000000",
+			},
+			{
+				name: "",
+				n:    "1000000000000000000000000000000000000",
+				d:    "6000000000000000000",
+			},
 		}
 
 		for _, tt := range tests {
@@ -148,8 +158,66 @@ func Test_natural_divByUint(t *testing.T) {
 
 				fmt.Println(stringNatural(got), "rem", stringNatural(got1))
 
-				assert.Equal(t, wantDiv, stringNatural(got))
-				assert.Equal(t, wantRem, stringNatural(got1))
+				assert.Equal(t, wantDiv, stringNatural(got), "division result")
+				assert.Equal(t, wantRem, stringNatural(got1), "remainder")
+			})
+		}
+	})
+
+	t.Run("sub", func(t *testing.T) {
+		tests := []struct {
+			name string
+			n    string
+			d    string
+		}{
+			{
+				name: "",
+				n:    "89999",
+				d:    "990",
+			},
+			{
+				name: "",
+				n:    "999999999999999999999999999999999999",
+				d:    "999999999999999999",
+			},
+			{
+				name: "",
+				n:    "999999999999999999999999999999999999999999999999999999999999999999999999",
+				d:    "999999999999999999",
+			},
+			{
+				name: "",
+				n:    "1234234213423545367456123123",
+				d:    "6",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				var wantSub string
+				{
+					a, err := decimal.NewFromString(tt.n)
+					require.NoError(t, err)
+
+					b, err := decimal.NewFromString(tt.d)
+					require.NoError(t, err)
+
+					c := a.Sub(b).Truncate(0)
+
+					wantSub = c.String()
+				}
+
+				n := createNatural(tt.n)
+
+				d := createNatural(tt.d)
+
+				fmt.Println("n - d = ", stringNatural(n), "-", stringNatural(d))
+
+				got := n.sub(d)
+
+				fmt.Println(stringNatural(got))
+
+				assert.Equal(t, wantSub, stringNatural(got))
 			})
 		}
 	})

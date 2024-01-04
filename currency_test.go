@@ -351,29 +351,29 @@ func BenchmarkDiv(b *testing.B) {
 	b.Log(sCurrency.String())
 }
 
-//// TODO: Remove me
-//func TestDiv(t *testing.T) {
-//	aStr := "000000000000000000999999999999999999999999999999999999.999999999999999999"
-//	bStr := "99999999999999999999999999999999999999999999999999999.999999999999999999"
-//
-//	a, err := NewFromString(aStr)
-//	require.NoError(t, err)
-//
-//	b, err := NewFromString(bStr)
-//	require.NoError(t, err)
-//
-//	if b.IsZero() {
-//		t.Skip()
-//	}
-//
-//	sa, err := decimal.NewFromString(aStr)
-//	require.NoError(t, err)
-//
-//	sb, err := decimal.NewFromString(bStr)
-//	require.NoError(t, err)
-//
-//	divResult := a.Div(b)
-//	sDivResult := sa.Div(sb)
-//
-//	require.Equal(t, sDivResult.String(), divResult.String())
-//}
+// TODO: Remove me
+func TestDiv(t *testing.T) {
+	aStr := "1"
+	bStr := "3"
+
+	a, err := NewFromString(aStr)
+	require.NoError(t, err)
+
+	b, err := NewFromString(bStr)
+	require.NoError(t, err)
+
+	if b.IsZero() {
+		t.Skip()
+	}
+
+	sa, err := decimal.NewFromString(aStr)
+	require.NoError(t, err)
+
+	sb, err := decimal.NewFromString(bStr)
+	require.NoError(t, err)
+
+	divResult := a.Div(b)
+	sDivResult := sa.Div(sb)
+
+	require.Equal(t, sDivResult.String(), divResult.String())
+}

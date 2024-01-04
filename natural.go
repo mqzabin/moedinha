@@ -41,6 +41,17 @@ func (n natural) string() [naturalMaxLen]byte {
 
 // add sums two natural numbers. This operation panics on overflow.
 func (n natural) add(v natural) natural {
+	res, over := n.addWithOverflow(v)
+
+	if over > 0 {
+		panic(fmt.Sprintf("natural number overflow: %s + %s, overflowing %d", n.string(), v.string(), over))
+	}
+
+	return res
+}
+
+// add sums two natural numbers. This operation panics on overflow.
+func (n natural) addWithOverflow(v natural) (natural, uint64) {
 	var result natural
 
 	for i := numberOfUints - 1; i >= 0; i-- {
@@ -54,11 +65,7 @@ func (n natural) add(v natural) natural {
 	var over uint64
 	result[0], over = rebalance(result[0], over)
 
-	if over > 0 {
-		panic(fmt.Sprintf("natural number overflow: %s + %s", n.string(), v.string()))
-	}
-
-	return result
+	return result, over
 }
 
 func (n natural) digits() int {
@@ -225,6 +232,9 @@ func (n natural) leftShiftUint(shift int) (natural, natural) {
 // sub calculates the subtraction: n - v.
 // "v" should be lesser than "n" to not overflow the natural domain.
 func (n natural) sub(v natural) natural {
+	// TODO: add n > v check here.
+	fmt.Println(n, "-", v)
+
 	vCompl := n.complement()
 	sum := v.add(vCompl)
 
@@ -332,6 +342,9 @@ func (n natural) div(v natural) (natural, natural) {
 	for i := 0; i < nUintsInUse; i++ {
 		var digit uint64
 		digit, dividend = longDivisionIteration(dividend, v)
+		if dividend.isZero() || digit == 0 {
+			break
+		}
 
 		// Inserting new computed digit to the quotient.
 		quotient, _ = quotient.leftShiftUint(1)
@@ -349,6 +362,10 @@ func (n natural) div(v natural) (natural, natural) {
 //
 // This function is mainly used by natural.div method in the long division algorithm.
 func longDivisionIteration(n, d natural) (uint64, natural) {
+	if n.isZero() || n.lessThan(d) {
+		return 0, n
+	}
+
 	nUints := n.uintsInUse()
 	dUints := d.uintsInUse()
 
@@ -366,7 +383,10 @@ func longDivisionIteration(n, d natural) (uint64, natural) {
 	quoDigit, _ := highLowDiv(hiN, loN, hiD)
 
 	quoMul, _ := d.mulByUint64(quoDigit)
-	quoMul, _ = quoMul.leftShiftUint(nUints - dUints)
+	//fmt.Println("partialQuoMul", quoMul)
+	//quoMul, _ = quoMul.leftShiftUint(nUints - dUints)
+
+	fmt.Println("n", n, "d", d, "quoDigit", quoDigit, "quoMul", quoMul)
 
 	return quoDigit, n.sub(quoMul)
 }
