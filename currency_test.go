@@ -1,6 +1,8 @@
 package moedinha
 
 import (
+	"fmt"
+	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
 
@@ -81,37 +83,36 @@ func FuzzBinaryOperations(f *testing.F) {
 			require.Equal(t, sMulResult.String(), mulResult.String())
 		})
 
-		//t.Run("Div", func(t *testing.T) {
-		//
-		//	aStr := seedA.string(naturalMaxLen - currencyDecimalDigits)
-		//	bStr := seedB.string(naturalMaxLen)
-		//
-		//	// Start the test.
-		//
-		//	a, err := NewFromString(aStr)
-		//	require.NoError(t, err)
-		//
-		//	b, err := NewFromString(bStr)
-		//	require.NoError(t, err)
-		//
-		//	if b.IsZero() {
-		//		t.Skip()
-		//	}
-		//
-		//	sa, err := decimal.NewFromString(aStr)
-		//	require.NoError(t, err)
-		//
-		//	sb, err := decimal.NewFromString(bStr)
-		//	require.NoError(t, err)
-		//
-		//	divResult := a.Div(b)
-		//	sDivResult := sa.Div(sb)
-		//
-		//	require.Equalf(t,
-		//		sDivResult.String(), divResult.String(),
-		//		"a = %s | b = %s", a.String(), b.String(),
-		//	)
-		//})
+		t.Run("Div", func(t *testing.T) {
+			aStr := seedA.string(naturalMaxLen - currencyDecimalDigits)
+			bStr := seedB.string(naturalMaxLen)
+
+			// Start the test.
+
+			a, err := NewFromString(aStr)
+			require.NoError(t, err)
+
+			b, err := NewFromString(bStr)
+			require.NoError(t, err)
+
+			if b.IsZero() {
+				t.Skip()
+			}
+
+			sa, err := decimal.NewFromString(aStr)
+			require.NoError(t, err)
+
+			sb, err := decimal.NewFromString(bStr)
+			require.NoError(t, err)
+
+			divResult := a.Div(b)
+			sDivResult := sa.Div(sb)
+
+			require.Equalf(t,
+				sDivResult.String(), divResult.String(),
+				"a = %s | b = %s", a.String(), b.String(),
+			)
+		})
 
 		t.Run("Comparisons", func(t *testing.T) {
 			// no overflow can occur.
@@ -353,27 +354,49 @@ func BenchmarkDiv(b *testing.B) {
 
 // TODO: Remove me
 func TestDiv(t *testing.T) {
-	aStr := "1"
-	bStr := "3"
 
-	a, err := NewFromString(aStr)
-	require.NoError(t, err)
-
-	b, err := NewFromString(bStr)
-	require.NoError(t, err)
-
-	if b.IsZero() {
-		t.Skip()
+	testCases := []struct {
+		a string
+		b string
+	}{
+		{
+			a: "999999999999999999999999999999999999.999999999999999999",
+			b: "999999999999999999.999999999999999999",
+		},
+		{
+			a: "1",
+			b: "3",
+		},
+		{
+			a: "1",
+			b: "6",
+		},
+		{
+			a: "999999999999999999.999999999999999999",
+			b: "999999999999999999999999999999999999.999999999999999999",
+		},
 	}
 
-	sa, err := decimal.NewFromString(aStr)
-	require.NoError(t, err)
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Div: %s / %s", tc.a, tc.b), func(t *testing.T) {
+			a, err := NewFromString(tc.a)
+			require.NoError(t, err)
 
-	sb, err := decimal.NewFromString(bStr)
-	require.NoError(t, err)
+			b, err := NewFromString(tc.b)
+			require.NoError(t, err)
 
-	divResult := a.Div(b)
-	sDivResult := sa.Div(sb)
+			sa, err := decimal.NewFromString(tc.a)
+			require.NoError(t, err)
 
-	require.Equal(t, sDivResult.String(), divResult.String())
+			sb, err := decimal.NewFromString(tc.b)
+			require.NoError(t, err)
+
+			divResult := a.DivRound(b)
+			sDivResult := sa.Div(sb)
+
+			assert.Equal(t, sDivResult.String(), divResult.String())
+
+			fmt.Println(divResult.String())
+		})
+	}
 }
