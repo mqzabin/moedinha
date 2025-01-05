@@ -1,13 +1,23 @@
-.PHONY: fuzzy/binary
-fuzzy/binary:
-	@go test -fuzz=FuzzBinaryOperations -parallel=4
+FUZZ_PARALLELISM=8
 
-.PHONY: fuzzy/unary
-fuzzy/unary:
-	@go test -fuzz=FuzzUnaryOperations -parallel=4
+.PHONY: fuzz/unary
+fuzz/unary:
+	@go test -fuzz=FuzzUnary -parallel=$(FUZZ_PARALLELISM)
 
-.PHONY: fuzzy/clean
-fuzzy/clean:
+.PHONY: fuzz/comparisons
+fuzz/comparisons:
+	@go test -fuzz=FuzzComparisons -parallel=$(FUZZ_PARALLELISM)
+
+.PHONY: fuzz/addsub
+fuzz/addsub:
+	@go test -fuzz=FuzzAddSub -parallel=$(FUZZ_PARALLELISM)
+
+.PHONY: fuzz/mul
+fuzz/mul:
+	@go test -fuzz=FuzzMul -parallel=$(FUZZ_PARALLELISM)
+
+.PHONY: fuzz/clean
+fuzz/clean:
 	@go clean -fuzzcache
 
 .PHONY: bench
