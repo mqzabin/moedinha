@@ -226,7 +226,8 @@ func (c Currency) Div(v Currency) Currency {
 
 	var quotient, remainder [highLow]natural
 
-	quotient[high], remainder[high] = dividend[high].div(v.mantissa.abs)
+	//quotient[high], remainder[high] = dividend[high].div(v.mantissa.abs)
+	quotient[high], _ = dividend[low].div(v.mantissa.abs)
 
 	quotient[low], remainder[low] = dividend[low].div(v.mantissa.abs)
 	if shouldRound(remainder[low]) {
