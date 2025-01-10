@@ -1,132 +1,206 @@
 package moedinha
 
 import (
-	"strings"
+	"strconv"
 	"testing"
 
+	"github.com/mqzabin/fuzzdecimal"
 	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/require"
 )
 
-func FuzzBinaryOperations(f *testing.F) {
-	fuzzyBinaryOperation(f, func(t *testing.T, seedA, seedB fuzzSeed) {
-		t.Run("Add + Sub", func(t *testing.T) {
-			// sum could lead to a +1 increase in number of digits.
-			truncateToAvoidOverflow := naturalMaxLen - 1
+func FuzzUnary(f *testing.F) {
+	parseDecimal := func(t *fuzzdecimal.T, s string) (Currency, error) {
+		t.Helper()
 
-			aStr := seedA.string(truncateToAvoidOverflow)
-			bStr := seedB.string(truncateToAvoidOverflow)
+		return NewFromString(s)
+	}
 
-			a, err := NewFromString(aStr)
-			require.NoError(t, err)
+	parseShopspringDecimal := func(t *fuzzdecimal.T, s string) (decimal.Decimal, error) {
+		t.Helper()
 
-			b, err := NewFromString(bStr)
-			require.NoError(t, err)
+		return decimal.NewFromString(s)
+	}
 
-			sa, err := decimal.NewFromString(aStr)
-			require.NoError(t, err)
+	fuzzdecimal.Fuzz(f, 1, func(t *fuzzdecimal.T) {
+		fuzzdecimal.AsDecimalComparison1(t, "IsZero", parseDecimal, parseShopspringDecimal,
+			func(t *fuzzdecimal.T, x1 decimal.Decimal) (string, error) {
+				t.Helper()
 
-			sb, err := decimal.NewFromString(bStr)
-			require.NoError(t, err)
+				return strconv.FormatBool(x1.IsZero()), nil
+			},
+			func(t *fuzzdecimal.T, x1 Currency) string {
+				return strconv.FormatBool(x1.IsZero())
+			},
+		)
 
-			addResult := a.Add(b)
-			sAddResult := sa.Add(sb)
+		fuzzdecimal.AsDecimalComparison1(t, "String", parseDecimal, parseShopspringDecimal,
+			func(t *fuzzdecimal.T, x1 decimal.Decimal) (string, error) {
+				t.Helper()
 
-			require.Equal(t, sAddResult.String(), addResult.String())
-
-			subResult := a.Sub(b)
-			sSubResult := sa.Sub(sb)
-
-			require.Equal(t, sSubResult.String(), subResult.String())
-		})
-
-		t.Run("Mul", func(t *testing.T) {
-			// Multiplication result sum the number of digits of "a" and "b" in "a*b".
-			// So, we should ensure that digits(a) + digits(b) don't overflow the
-			// naturalMaxLen constant.
-			// To ensure this, first we generate the "a" with near max digits (naturalMaxLen-1),
-			// then we generate "b" with naturalMaxLen - digits(a), so we ensure that
-			// digits(a) + digits(b) = naturalMaxLen.
-
-			// toTrim is the string of runes that can be removed from
-			// left of a number until what is left is the natural digits.
-			const toTrim = "" + string(integerNegativeSymbol) + string(currencyDecimalSeparatorSymbol) + string(zeroRune)
-
-			aStr := seedA.string(naturalMaxLen - 1)
-
-			// This operation will return the number of natural digits of "a".
-			aNatDigits := len(strings.TrimLeft(aStr, toTrim))
-
-			truncateToAvoidOverflow := naturalMaxLen - aNatDigits
-
-			bStr := seedB.string(truncateToAvoidOverflow)
-
-			// Start the test.
-
-			a, err := NewFromString(aStr)
-			require.NoError(t, err)
-
-			b, err := NewFromString(bStr)
-			require.NoError(t, err)
-
-			sa, err := decimal.NewFromString(aStr)
-			require.NoError(t, err)
-
-			sb, err := decimal.NewFromString(bStr)
-			require.NoError(t, err)
-
-			mulResult := a.Mul(b)
-			sMulResult := sa.Mul(sb).Truncate(currencyDecimalDigits)
-
-			require.Equal(t, sMulResult.String(), mulResult.String())
-		})
-
-		t.Run("Comparisons", func(t *testing.T) {
-			// no overflow can occur.
-			truncateToAvoidOverflow := naturalMaxLen
-
-			aStr := seedA.string(truncateToAvoidOverflow)
-			bStr := seedB.string(truncateToAvoidOverflow)
-
-			a, err := NewFromString(aStr)
-			require.NoError(t, err)
-
-			b, err := NewFromString(bStr)
-			require.NoError(t, err)
-
-			sa, err := decimal.NewFromString(aStr)
-			require.NoError(t, err)
-
-			sb, err := decimal.NewFromString(bStr)
-			require.NoError(t, err)
-
-			require.Equal(t, sa.Equal(sb), a.Equal(b))
-			require.Equal(t, sa.GreaterThan(sb), a.GreaterThan(b))
-			require.Equal(t, sa.GreaterThanOrEqual(sb), a.GreaterThanOrEqual(b))
-			require.Equal(t, sa.LessThan(sb), a.LessThan(b))
-			require.Equal(t, sa.LessThanOrEqual(sb), a.LessThanOrEqual(b))
-		})
-	})
+				return x1.String(), nil
+			},
+			func(t *fuzzdecimal.T, x1 Currency) string {
+				return x1.String()
+			},
+		)
+	}, fuzzdecimal.WithAllDecimals(
+		fuzzdecimal.WithSigned(),
+		fuzzdecimal.WithMaxSignificantDigits(naturalMaxLen),
+		fuzzdecimal.WithDecimalPointAt(currencyDecimalDigits),
+	))
 }
 
-func FuzzUnaryOperations(f *testing.F) {
-	fuzzyUnaryOperation(f, func(t *testing.T, seed fuzzSeed) {
-		t.Run("IsZero + String", func(t *testing.T) {
-			// no overflow can occur
-			truncateToAvoidOverflow := naturalMaxLen
+func FuzzComparisons(f *testing.F) {
+	parseDecimal := func(t *fuzzdecimal.T, s string) (Currency, error) {
+		t.Helper()
 
-			str := seed.string(truncateToAvoidOverflow)
+		return NewFromString(s)
+	}
 
-			a, err := NewFromString(str)
-			require.NoError(t, err)
+	parseShopspringDecimal := func(t *fuzzdecimal.T, s string) (decimal.Decimal, error) {
+		t.Helper()
 
-			sa, err := decimal.NewFromString(str)
-			require.NoError(t, err)
+		return decimal.NewFromString(s)
+	}
 
-			require.Equal(t, a.IsZero(), sa.IsZero())
-			require.Equal(t, a.String(), sa.String())
-		})
-	})
+	fuzzdecimal.Fuzz(f, 2, func(t *fuzzdecimal.T) {
+		fuzzdecimal.AsDecimalComparison2(t, "Equal", parseDecimal, parseShopspringDecimal,
+			func(t *fuzzdecimal.T, x1, x2 decimal.Decimal) (string, error) {
+				t.Helper()
+
+				return strconv.FormatBool(x1.Equal(x2)), nil
+			},
+			func(t *fuzzdecimal.T, x1, x2 Currency) string {
+				return strconv.FormatBool(x1.Equal(x2))
+			},
+		)
+
+		fuzzdecimal.AsDecimalComparison2(t, "GreaterThan", parseDecimal, parseShopspringDecimal,
+			func(t *fuzzdecimal.T, x1, x2 decimal.Decimal) (string, error) {
+				t.Helper()
+
+				return strconv.FormatBool(x1.GreaterThan(x2)), nil
+			},
+			func(t *fuzzdecimal.T, x1, x2 Currency) string {
+				return strconv.FormatBool(x1.GreaterThan(x2))
+			},
+		)
+
+		fuzzdecimal.AsDecimalComparison2(t, "GreaterThanOrEqual", parseDecimal, parseShopspringDecimal,
+			func(t *fuzzdecimal.T, x1, x2 decimal.Decimal) (string, error) {
+				t.Helper()
+
+				return strconv.FormatBool(x1.GreaterThanOrEqual(x2)), nil
+			},
+			func(t *fuzzdecimal.T, x1, x2 Currency) string {
+				return strconv.FormatBool(x1.GreaterThanOrEqual(x2))
+			},
+		)
+
+		fuzzdecimal.AsDecimalComparison2(t, "LessThan", parseDecimal, parseShopspringDecimal,
+			func(t *fuzzdecimal.T, x1, x2 decimal.Decimal) (string, error) {
+				t.Helper()
+
+				return strconv.FormatBool(x1.LessThan(x2)), nil
+			},
+			func(t *fuzzdecimal.T, x1, x2 Currency) string {
+				return strconv.FormatBool(x1.LessThan(x2))
+			},
+		)
+
+		fuzzdecimal.AsDecimalComparison2(t, "LessThanOrEqual", parseDecimal, parseShopspringDecimal,
+			func(t *fuzzdecimal.T, x1, x2 decimal.Decimal) (string, error) {
+				t.Helper()
+
+				return strconv.FormatBool(x1.LessThanOrEqual(x2)), nil
+			},
+			func(t *fuzzdecimal.T, x1, x2 Currency) string {
+				return strconv.FormatBool(x1.LessThanOrEqual(x2))
+			},
+		)
+	}, fuzzdecimal.WithAllDecimals(
+		fuzzdecimal.WithSigned(),
+		fuzzdecimal.WithMaxSignificantDigits(naturalMaxLen),
+		fuzzdecimal.WithDecimalPointAt(currencyDecimalDigits),
+	))
+}
+
+func FuzzAddSub(f *testing.F) {
+	parseDecimal := func(t *fuzzdecimal.T, s string) (Currency, error) {
+		t.Helper()
+
+		return NewFromString(s)
+	}
+
+	parseShopspringDecimal := func(t *fuzzdecimal.T, s string) (decimal.Decimal, error) {
+		t.Helper()
+
+		return decimal.NewFromString(s)
+	}
+
+	fuzzdecimal.Fuzz(f, 2, func(t *fuzzdecimal.T) {
+		fuzzdecimal.AsDecimalComparison2(t, "Add", parseDecimal, parseShopspringDecimal,
+			func(t *fuzzdecimal.T, x1, x2 decimal.Decimal) (string, error) {
+				t.Helper()
+
+				return x1.Add(x2).Truncate(currencyDecimalDigits).String(), nil
+			},
+			func(t *fuzzdecimal.T, x1, x2 Currency) string {
+				return x1.Add(x2).String()
+			},
+		)
+
+		fuzzdecimal.AsDecimalComparison2(t, "Sub", parseDecimal, parseShopspringDecimal,
+			func(t *fuzzdecimal.T, x1, x2 decimal.Decimal) (string, error) {
+				t.Helper()
+
+				return x1.Sub(x2).Truncate(currencyDecimalDigits).String(), nil
+			},
+			func(t *fuzzdecimal.T, x1 Currency, x2 Currency) string {
+				return x1.Sub(x2).String()
+			},
+		)
+	}, fuzzdecimal.WithAllDecimals(
+		fuzzdecimal.WithSigned(),
+		// The a+b and a-b operations will at most add 1 digit to the greatest number between a and b.
+		// So, we should ensure that the greatest number has at most naturalMaxLen-1 digits.
+		fuzzdecimal.WithMaxSignificantDigits(naturalMaxLen-1),
+		fuzzdecimal.WithDecimalPointAt(currencyDecimalDigits),
+	))
+}
+
+func FuzzMul(f *testing.F) {
+	parseDecimal := func(t *fuzzdecimal.T, s string) (Currency, error) {
+		t.Helper()
+
+		return NewFromString(s)
+	}
+
+	parseShopspringDecimal := func(t *fuzzdecimal.T, s string) (decimal.Decimal, error) {
+		t.Helper()
+
+		return decimal.NewFromString(s)
+	}
+
+	fuzzdecimal.Fuzz(f, 2, func(t *fuzzdecimal.T) {
+		fuzzdecimal.AsDecimalComparison2(t, "Add", parseDecimal, parseShopspringDecimal,
+			func(t *fuzzdecimal.T, x1, x2 decimal.Decimal) (string, error) {
+				t.Helper()
+
+				return x1.Mul(x2).Truncate(currencyDecimalDigits).String(), nil
+			},
+			func(t *fuzzdecimal.T, x1 Currency, x2 Currency) string {
+				return x1.Mul(x2).String()
+			},
+		)
+	}, fuzzdecimal.WithAllDecimals(
+		fuzzdecimal.WithSigned(),
+		// Multiplication result will at most sum the number of digits of "a" and "b" in "a*b".
+		// So, we should ensure that digits(a) + digits(b) don't overflow the
+		// naturalMaxLen constant.
+		fuzzdecimal.WithMaxSignificantDigits(naturalMaxLen/2),
+		fuzzdecimal.WithDecimalPointAt(currencyDecimalDigits),
+	))
 }
 
 func BenchmarkNewFromString(b *testing.B) {

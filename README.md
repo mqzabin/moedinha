@@ -60,13 +60,6 @@ will start to be a performance bottleneck.
 These problems arise from the "arbitrary precision" hypothesis, which is not required in some real-world scenarios.
 `moedinha` makes this hypothesis false to reduce allocations to zero, using fixed-size arrays to represent integer values.
 
-# Roadmap
-- [X] Sum.
-- [X] Subtraction.
-- [X] Multiplication.
-- [ ] Division (Newton-Raphson method).
-- [ ] Exponentiation.
-
 # Benchmarks
 ```
 goos: linux
@@ -83,5 +76,21 @@ BenchmarkSub/moedinha-16                         3190180               371.5 ns/
 BenchmarkSub/shopspring-16                      13402520               132.8 ns/op            96 B/op          2 allocs/op
 BenchmarkMul/moedinha-16                        17169872                63.04 ns/op            0 B/op          0 allocs/op
 BenchmarkMul/shopspring-16                       3261558               438.9 ns/op           304 B/op          8 allocs/op
-
 ```
+
+# Development
+
+## Fuzzy tests
+
+This package makes a heavy usage of fuzzy tests, comparing all operation results with their equivalent in the `shopspring/decimal` package.
+
+It uses the [github.com/mqzabin/fuzzdecimal](https://github.com/mqzabin/fuzzdecimal) package to ease the fuzzing process with decimal numbers.
+
+There are some Makefile targets to ease the fuzzy calling process:
+
+- `make fuzz/unary`: Tests unary functions, like `String`, `IsZero`, etc.
+- `make fuzz/comparisons`: Tests comparisons functions, like `Equal`, `GreaterThan`, etc.
+- `make fuzz/addsub`: Tests `Add` and `Sub` operations.
+- `make fuzz/mul`:  Tests `Mul` operations.
+
+All of this target will read and save the fuzzy entries cache to the `./testdata` directory, so the fuzzy process could continue across different machines. 
