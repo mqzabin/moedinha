@@ -21,7 +21,6 @@ fuzz/mul:
 fuzz/div:
 	@go test -run=none -fuzz=FuzzDiv -parallel=$(FUZZ_PARALLELISM) -test.fuzzcachedir=$(FUZZ_CACHE_DIR)
 
-
 .PHONY: fuzz/clean
 fuzz/clean:
 	@go clean -fuzzcache
@@ -29,3 +28,7 @@ fuzz/clean:
 .PHONY: bench
 bench:
 	@go test -run=none -bench=. -benchmem ./...
+
+.PHONY: bench/div
+bench/div:
+	@go test -run=none -bench=BenchmarkDiv -benchmem ./...
