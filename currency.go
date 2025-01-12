@@ -31,7 +31,7 @@ var (
 )
 
 type Currency struct {
-	t integer
+	mantissa integer
 }
 
 func NewFromString(str string) (Currency, error) {
@@ -79,15 +79,15 @@ func NewFromString(str string) (Currency, error) {
 		return Currency{}, fmt.Errorf("creating underlying integer: %w", err)
 	}
 
-	return Currency{t: intValue}, nil
+	return Currency{mantissa: intValue}, nil
 }
 
 func (c Currency) String() string {
-	if c.t.isZero() {
+	if c.mantissa.isZero() {
 		return "0"
 	}
 
-	intString := c.t.string()
+	intString := c.mantissa.string()
 
 	currString := [currencyMaxLen]byte{}
 	// Copy integer part, preserving 0 index to negative symbol.
@@ -125,7 +125,7 @@ func (c Currency) String() string {
 		leftZerosToRemove--
 	}
 
-	if c.t.neg {
+	if c.mantissa.neg {
 		currString[leftZerosToRemove] = integerNegativeSymbol
 		leftZerosToRemove--
 	}
@@ -134,55 +134,135 @@ func (c Currency) String() string {
 }
 
 func (c Currency) IsZero() bool {
-	return c.t.isZero()
+	return c.mantissa.isZero()
 }
 
 func (c Currency) Equal(v Currency) bool {
-	return c.t.equal(v.t)
+	return c.mantissa.equal(v.mantissa)
 }
 
 func (c Currency) GreaterThan(v Currency) bool {
-	return c.t.greaterThan(v.t)
+	return c.mantissa.greaterThan(v.mantissa)
 }
 
 func (c Currency) GreaterThanOrEqual(v Currency) bool {
-	return c.t.greaterThanOrEqual(v.t)
+	return c.mantissa.greaterThanOrEqual(v.mantissa)
 }
 
 func (c Currency) LessThan(v Currency) bool {
-	return c.t.lessThan(v.t)
+	return c.mantissa.lessThan(v.mantissa)
 }
 
 func (c Currency) LessThanOrEqual(v Currency) bool {
-	return c.t.lessThanOrEqual(v.t)
+	return c.mantissa.lessThanOrEqual(v.mantissa)
 }
 
 func (c Currency) Add(v Currency) Currency {
-	return Currency{c.t.add(v.t)}
+	return Currency{c.mantissa.add(v.mantissa)}
 }
 
 func (c Currency) Sub(v Currency) Currency {
-	return Currency{c.t.sub(v.t)}
+	return Currency{c.mantissa.sub(v.mantissa)}
 }
 
 func (c Currency) Mul(v Currency) Currency {
-	intResult, natOverflow := c.t.mul(v.t)
+	intResult, natOverflow := c.mantissa.mul(v.mantissa)
 
 	// Since integers and naturals represents numbers with currencyDecimalDigits decimal
 	// digits, the result represents a number with 2*currencyDecimalDigits decimal digits.
 	// There's a need to truncate the first currencyDecimalDigits from the natural number.
-	intResult.n, _ = intResult.n.padRight(uintsReservedToDecimal)
+	intResult.abs, _ = intResult.abs.rightShiftUint(uintsReservedToDecimal)
 
 	// Getting the overflow part that should be summed to result.
-	natOverflow, addToResult := natOverflow.padRight(uintsReservedToDecimal)
+	natOverflow, addToResult := natOverflow.rightShiftUint(uintsReservedToDecimal)
 
-	intResult.n = intResult.n.add(addToResult)
+	intResult.abs = intResult.abs.add(addToResult)
 
 	if !natOverflow.isZero() {
 		panic(fmt.Sprintf("multiplication overflow: %s * %s", c.String(), v.String()))
 	}
 
 	return Currency{
-		t: intResult,
+		mantissa: intResult,
 	}
+}
+
+func (c Currency) DivInt(v int64) Currency {
+	intRes, _ := c.mantissa.divByInt(v)
+
+	return Currency{
+		mantissa: intRes,
+	}
+}
+
+func (c Currency) Div(v Currency) Currency {
+	var shiftScale int
+
+	shouldRound := func(r natural) bool {
+		r2, _ := r.mulByUint64(2)
+		return r2.greaterThan(v.mantissa.abs)
+	}
+
+	// Checking if 'c' < 'v'. If so, we should shift 'c' to the left until
+	// it's greater than v.
+	if c.mantissa.abs.lessThan(v.mantissa.abs) {
+		cUints := c.mantissa.abs.uintsInUse()
+		vUints := v.mantissa.abs.uintsInUse()
+
+		shiftScale = vUints - cUints
+		if c.mantissa.abs[numberOfUints-cUints] < v.mantissa.abs[numberOfUints-vUints] {
+			shiftScale++
+		}
+	}
+
+	// Shifting and splitting dividend in its high and low parts.
+	var dividend [highLow]natural
+	switch shiftScale {
+	case 0:
+		dividend[low] = c.mantissa.abs
+	default:
+		dividend[low], dividend[high] = c.mantissa.abs.leftShiftUint(shiftScale)
+	}
+
+	var quotient, remainder [highLow]natural
+
+	//quotient[high], remainder[high] = dividend[high].div(v.mantissa.abs)
+	quotient[high], _ = dividend[low].div(v.mantissa.abs)
+
+	quotient[low], remainder[low] = dividend[low].div(v.mantissa.abs)
+	if shouldRound(remainder[low]) {
+		quotient[low] = quotient[low].add(naturalOne)
+	}
+
+	// Adjusting the result decimal digits.
+	quotient[low], _ = quotient[low].leftShiftUint(uintsReservedToDecimal)
+
+	// Un-shifting result.
+	if shiftScale > 0 {
+		var underflow natural
+
+		quotient[low], underflow = quotient[low].rightShiftUint(shiftScale)
+
+		// Rounding if needed.
+		if underflow[0] >= halfMaxValuePerUint+1 {
+			quotient[low] = quotient[low].add(naturalOne)
+		}
+	}
+
+	return Currency{
+		mantissa: integer{
+			abs: quotient[low],
+			neg: c.mantissa.neg != v.mantissa.neg,
+		},
+	}
+}
+
+func (c Currency) DivRound(v Currency) Currency {
+	v.mantissa.abs = v.mantissa.abs.sub(naturalOne)
+
+	res := c.Div(v)
+
+	res.mantissa.abs = res.mantissa.abs.add(naturalOne)
+
+	return res
 }

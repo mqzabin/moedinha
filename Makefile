@@ -3,19 +3,23 @@ FUZZ_CACHE_DIR=testdata
 
 .PHONY: fuzz/unary
 fuzz/unary:
-	@go test -fuzz=FuzzUnary -parallel=$(FUZZ_PARALLELISM) -test.fuzzcachedir=$(FUZZ_CACHE_DIR)
+	@go test -run=none -fuzz=FuzzUnary -parallel=$(FUZZ_PARALLELISM) -test.fuzzcachedir=$(FUZZ_CACHE_DIR)
 
 .PHONY: fuzz/comparisons
 fuzz/comparisons:
-	@go test -fuzz=FuzzComparisons -parallel=$(FUZZ_PARALLELISM) -test.fuzzcachedir=$(FUZZ_CACHE_DIR)
+	@go test -run=none -fuzz=FuzzComparisons -parallel=$(FUZZ_PARALLELISM) -test.fuzzcachedir=$(FUZZ_CACHE_DIR)
 
 .PHONY: fuzz/addsub
 fuzz/addsub:
-	@go test -fuzz=FuzzAddSub -parallel=$(FUZZ_PARALLELISM) -test.fuzzcachedir=$(FUZZ_CACHE_DIR)
+	@go test -run=none -fuzz=FuzzAddSub -parallel=$(FUZZ_PARALLELISM) -test.fuzzcachedir=$(FUZZ_CACHE_DIR)
 
 .PHONY: fuzz/mul
 fuzz/mul:
-	@go test -fuzz=FuzzMul -parallel=$(FUZZ_PARALLELISM) -test.fuzzcachedir=$(FUZZ_CACHE_DIR)
+	@go test -run=none -fuzz=FuzzMul -parallel=$(FUZZ_PARALLELISM) -test.fuzzcachedir=$(FUZZ_CACHE_DIR)
+
+.PHONY: fuzz/div
+fuzz/div:
+	@go test -run=none -fuzz=FuzzDiv -parallel=$(FUZZ_PARALLELISM) -test.fuzzcachedir=$(FUZZ_CACHE_DIR)
 
 .PHONY: fuzz/clean
 fuzz/clean:
@@ -23,4 +27,8 @@ fuzz/clean:
 
 .PHONY: bench
 bench:
-	@go test -run none -bench=. -benchmem ./...
+	@go test -run=none -bench=. -benchmem ./...
+
+.PHONY: bench/div
+bench/div:
+	@go test -run=none -bench=BenchmarkDiv -benchmem ./...

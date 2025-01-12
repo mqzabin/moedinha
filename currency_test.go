@@ -1,8 +1,12 @@
 package moedinha
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/mqzabin/fuzzdecimal"
 	"github.com/shopspring/decimal"
@@ -203,6 +207,37 @@ func FuzzMul(f *testing.F) {
 	))
 }
 
+func FuzzDiv(f *testing.F) {
+	parseDecimal := func(t *fuzzdecimal.T, s string) (Currency, error) {
+		t.Helper()
+
+		return NewFromString(s)
+	}
+
+	parseShopspringDecimal := func(t *fuzzdecimal.T, s string) (decimal.Decimal, error) {
+		t.Helper()
+
+		return decimal.NewFromString(s)
+	}
+
+	fuzzdecimal.Fuzz(f, 2, func(t *fuzzdecimal.T) {
+		fuzzdecimal.AsDecimalComparison2(t, "Add", parseDecimal, parseShopspringDecimal,
+			func(t *fuzzdecimal.T, x1, x2 decimal.Decimal) (string, error) {
+				t.Helper()
+
+				return x1.Div(x2).Truncate(currencyDecimalDigits).String(), nil
+			},
+			func(t *fuzzdecimal.T, x1 Currency, x2 Currency) string {
+				return x1.Div(x2).String()
+			},
+		)
+	}, fuzzdecimal.WithAllDecimals(
+		fuzzdecimal.WithSigned(),
+		fuzzdecimal.WithMaxSignificantDigits(naturalMaxLen/2),
+		fuzzdecimal.WithDecimalPointAt(currencyDecimalDigits),
+	))
+}
+
 func BenchmarkNewFromString(b *testing.B) {
 	aStr := "8901234567890124190123456789012345612345678.9012345678"
 
@@ -212,7 +247,6 @@ func BenchmarkNewFromString(b *testing.B) {
 	)
 
 	b.Run("moedinha", func(b *testing.B) {
-
 		for i := 0; i < b.N; i++ {
 			x, _ := NewFromString(aStr)
 
@@ -243,6 +277,8 @@ func BenchmarkString(b *testing.B) {
 	b.Run("moedinha", func(b *testing.B) {
 		x, _ := NewFromString(aStr)
 
+		b.ResetTimer()
+
 		for i := 0; i < b.N; i++ {
 			mCurrency = x.String()
 		}
@@ -250,6 +286,8 @@ func BenchmarkString(b *testing.B) {
 
 	b.Run("shopspring", func(b *testing.B) {
 		x, _ := decimal.NewFromString(aStr)
+
+		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
 
@@ -275,6 +313,8 @@ func BenchmarkAdd(b *testing.B) {
 
 		y, _ := NewFromString(bStr)
 
+		b.ResetTimer()
+
 		for i := 0; i < b.N; i++ {
 			mCurrency = x.Add(y)
 		}
@@ -284,6 +324,8 @@ func BenchmarkAdd(b *testing.B) {
 		x, _ := decimal.NewFromString(aStr)
 
 		y, _ := decimal.NewFromString(bStr)
+
+		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
 			sCurrency = x.Add(y)
@@ -308,6 +350,8 @@ func BenchmarkSub(b *testing.B) {
 
 		y, _ := NewFromString(bStr)
 
+		b.ResetTimer()
+
 		for i := 0; i < b.N; i++ {
 			mCurrency = x.Mul(y)
 		}
@@ -317,6 +361,8 @@ func BenchmarkSub(b *testing.B) {
 		x, _ := decimal.NewFromString(aStr)
 
 		y, _ := decimal.NewFromString(bStr)
+
+		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
 			sCurrency = x.Mul(y)
@@ -341,6 +387,8 @@ func BenchmarkMul(b *testing.B) {
 
 		y, _ := NewFromString(bStr)
 
+		b.ResetTimer()
+
 		for i := 0; i < b.N; i++ {
 			mCurrency = x.Sub(y)
 		}
@@ -351,6 +399,8 @@ func BenchmarkMul(b *testing.B) {
 
 		y, _ := decimal.NewFromString(bStr)
 
+		b.ResetTimer()
+
 		for i := 0; i < b.N; i++ {
 			sCurrency = x.Sub(y)
 		}
@@ -358,4 +408,89 @@ func BenchmarkMul(b *testing.B) {
 
 	b.Log(mCurrency.String())
 	b.Log(sCurrency.String())
+}
+
+func BenchmarkDiv(b *testing.B) {
+	aStr := "99999999999999999999999999999999999999999999999999999.999999999999999999"
+	bStr := "000000000000000000999999999999999999999999999999999999.999999999999999999"
+
+	var (
+		mCurrency Currency
+		sCurrency decimal.Decimal
+	)
+
+	b.Run("moedinha", func(b *testing.B) {
+		x, _ := NewFromString(aStr)
+
+		y, _ := NewFromString(bStr)
+
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			mCurrency = x.Div(y)
+		}
+	})
+
+	b.Run("shopspring", func(b *testing.B) {
+		x, _ := decimal.NewFromString(aStr)
+
+		y, _ := decimal.NewFromString(bStr)
+
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			sCurrency = x.Div(y)
+		}
+	})
+
+	b.Log(mCurrency.String())
+	b.Log(sCurrency.String())
+}
+
+// TODO: Remove me
+func TestDiv(t *testing.T) {
+	testCases := []struct {
+		a string
+		b string
+	}{
+		{
+			a: "999999999999999999999999999999999999.999999999999999999",
+			b: "999999999999999999.999999999999999999",
+		},
+		{
+			a: "1",
+			b: "3",
+		},
+		{
+			a: "1",
+			b: "6",
+		},
+		{
+			a: "999999999999999999.999999999999999999",
+			b: "999999999999999999999999999999999999.999999999999999999",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Div: %s / %s", tc.a, tc.b), func(t *testing.T) {
+			a, err := NewFromString(tc.a)
+			require.NoError(t, err)
+
+			b, err := NewFromString(tc.b)
+			require.NoError(t, err)
+
+			sa, err := decimal.NewFromString(tc.a)
+			require.NoError(t, err)
+
+			sb, err := decimal.NewFromString(tc.b)
+			require.NoError(t, err)
+
+			divResult := a.DivRound(b)
+			sDivResult := sa.Div(sb)
+
+			assert.Equal(t, sDivResult.String(), divResult.String())
+
+			fmt.Println(divResult.String())
+		})
+	}
 }

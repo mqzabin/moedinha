@@ -1,17 +1,79 @@
 package moedinha
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	// base is the base value used by the library.
 	base = 10
 	// maxValuePerUint is the greater 999-ish number under 63 bits.
+	// Its binary representation is:
+	// 101100110111110110011011111100000110100111100111111111111111
 	maxValuePerUint = 999999999999999999
+	// maxValuePerUintBitsUsed it's the number of bits used to represent maxValuePerUint.
+	maxValuePerUintBitsUsed = 60
 	// maxDigitsPerUint is the amount of maxValuePerUint digits.
 	maxDigitsPerUint = 18
 	// halfMaxValuePerUint is half of maxValuePerUint digits.
 	halfMaxValuePerUint = 999999999
 )
+
+var pow10 = newPow10Map()
+
+func newPow10Map() map[int]uint64 {
+	powValue := uint64(1)
+
+	pow10Map := make(map[int]uint64, 2*naturalMaxLen)
+	pow10Map[0] = powValue
+
+	for e := 1; e <= naturalMaxLen; e++ {
+		powValue *= base
+
+		pow10Map[e] = powValue
+	}
+
+	return pow10Map
+}
+
+// TODO: Implement some sort of binary search here.
+func digitsOf(v uint64) int {
+	if v == 0 {
+		return 0
+	}
+
+	for i := maxDigitsPerUint; i >= 0; i-- {
+		if v/pow10[i] != 0 {
+			return i + 1
+		}
+	}
+
+	panic("finding digits of a uint64")
+}
+
+func rightShift(v uint64, shift int) (uint64, uint64) {
+	if shift > maxDigitsPerUint {
+		panic("invalid shift passed to right shift")
+	}
+
+	if shift < 0 {
+		return leftShift(v, -shift)
+	}
+
+	return v / pow10[shift], (v % pow10[shift]) * pow10[maxDigitsPerUint-shift]
+}
+
+func leftShift(v uint64, shift int) (uint64, uint64) {
+	if shift > maxDigitsPerUint {
+		panic("invalid shift passed to left shift")
+	}
+
+	if shift < 0 {
+		return rightShift(v, -shift)
+	}
+
+	return (v % pow10[maxDigitsPerUint-shift]) * pow10[shift], v / pow10[maxDigitsPerUint-shift]
+}
 
 // rebalance truncates the src to maxValuePerUint, returns it at newSrc and adds the reminder to newDest.
 func rebalance(src, dest uint64) (newSrc, newDest uint64) {
@@ -85,4 +147,66 @@ func itoa(v uint64) [maxDigitsPerUint]byte {
 	}
 
 	return res
+}
+
+// highLowDiv is a bits.Div64 rewrite using uint conventions from this package, i.e.
+// each uint64 (hi/lo) stores the number's upper and lower 18 digits.
+func highLowDiv(hi, lo, d uint64) (quo, rem uint64) {
+	if d == 0 {
+		panic("division by zero")
+	}
+	if d <= hi {
+		panic("unsupported denominator")
+	}
+
+	// If high part is zero, we can directly return the results.
+	if hi == 0 {
+		return lo / d, lo % d
+	}
+
+	// Left shift d up to maxDigitsPerUint digits.
+	s := maxDigitsPerUint - digitsOf(d)
+	d, _ = leftShift(d, s)
+
+	const half = halfMaxValuePerUint + 1
+
+	// Splitting d into its lower and upper digits.
+	hiD, loD := splitInHalf(d)
+
+	// Getting the 's' left digits of 'lo' and the remaining digits.
+	loRaisedDigits, remainingLo := rightShift(lo, maxDigitsPerUint-s)
+	// Shifting 'hi' by 's' digits to the left.
+	// The overflow is always zero, since digits of 'hi' is less or equal 's', given that 'd' > 'hi'.
+	hiShiftedLeft, _ := leftShift(hi, s)
+	// upperDigits is the upper digits of the entire number (hi, lo) shifted left by 's' digits.
+	upperDigits := hiShiftedLeft + loRaisedDigits
+
+	loShiftedHi, loShiftedLo := splitInHalf(remainingLo)
+
+	hiQuotient := upperDigits / hiD
+	hiRemainder := upperDigits - hiQuotient*hiD
+
+	for hiQuotient >= half || hiQuotient*loD > half*hiRemainder+loShiftedHi {
+		hiQuotient--
+		hiRemainder += hiD
+		if hiRemainder >= half {
+			break
+		}
+	}
+
+	un21 := upperDigits*half + loShiftedHi - hiQuotient*d
+	q0 := un21 / hiD
+	hiRemainder = un21 - q0*hiD
+
+	for q0 >= half || q0*loD > half*hiRemainder+loShiftedLo {
+		q0--
+		hiRemainder += hiD
+		if hiRemainder >= half {
+			break
+		}
+	}
+
+	resultingRem, _ := rightShift(un21*half+loShiftedLo-q0*d, s)
+
+	return hiQuotient*half + q0, resultingRem
 }
