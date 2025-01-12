@@ -295,39 +295,6 @@ func BenchmarkAdd(b *testing.B) {
 }
 
 func BenchmarkSub(b *testing.B) {
-	aStr := "10000000000000000010000000000000000010000.00000000000001"
-	bStr := "0.999999999999999999"
-
-	var (
-		mCurrency Currency
-		sCurrency decimal.Decimal
-	)
-
-	b.Run("moedinha", func(b *testing.B) {
-		x, _ := NewFromString(aStr)
-
-		y, _ := NewFromString(bStr)
-
-		for i := 0; i < b.N; i++ {
-			mCurrency = x.Mul(y)
-		}
-	})
-
-	b.Run("shopspring", func(b *testing.B) {
-		x, _ := decimal.NewFromString(aStr)
-
-		y, _ := decimal.NewFromString(bStr)
-
-		for i := 0; i < b.N; i++ {
-			sCurrency = x.Mul(y)
-		}
-	})
-
-	b.Log(mCurrency.String())
-	b.Log(sCurrency.String())
-}
-
-func BenchmarkMul(b *testing.B) {
 	aStr := "8901234567890124190123456789012345612345678.9012345678"
 	bStr := "2345678901234567500000000000000000000000000"
 
@@ -353,6 +320,39 @@ func BenchmarkMul(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			sCurrency = x.Sub(y)
+		}
+	})
+
+	b.Log(mCurrency.String())
+	b.Log(sCurrency.String())
+}
+
+func BenchmarkMul(b *testing.B) {
+	aStr := "10000000000000000010000000000000000010000.00000000000001"
+	bStr := "0.999999999999999999"
+
+	var (
+		mCurrency Currency
+		sCurrency decimal.Decimal
+	)
+
+	b.Run("moedinha", func(b *testing.B) {
+		x, _ := NewFromString(aStr)
+
+		y, _ := NewFromString(bStr)
+
+		for i := 0; i < b.N; i++ {
+			mCurrency = x.Mul(y)
+		}
+	})
+
+	b.Run("shopspring", func(b *testing.B) {
+		x, _ := decimal.NewFromString(aStr)
+
+		y, _ := decimal.NewFromString(bStr)
+
+		for i := 0; i < b.N; i++ {
+			sCurrency = x.Mul(y)
 		}
 	})
 
