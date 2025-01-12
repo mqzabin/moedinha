@@ -1,2 +1,4 @@
-github.com/shopspring/decimal v1.3.1 h1:2Usl1nmF/WZucqkFZhnfFYxxxu8LG21F6nPQBE5gKV8=
-github.com/shopspring/decimal v1.3.1/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFRcu2hWCYk4o=
+github.com/mqzabin/fuzzdecimal v1.0.0 h1:z2VdnAqZcozXElk2dWe52vtmyQoiNud941n3fwPEZ9s=
+github.com/mqzabin/fuzzdecimal v1.0.0/go.mod h1:Etx8dOg6PsJTPGURxYe3a+8WNtfBUQIHMVO5tnDNgT4=
+github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp81k=
+github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
